@@ -39,11 +39,10 @@ const App: React.FC = () => {
     let characterDescriptions: CharacterDescription[] = [];
     
     try {
-      // Step 1: Pre-process characters if using a service that needs text descriptions (Pollinations)
-      const needsCharacterPreProcessing = options.generationService === GenerationService.POLLINATIONS && options.characterReferences.length > 0;
-
-      if (needsCharacterPreProcessing) {
+      // Step 1: Pre-process characters if references are provided. This is always done with Gemini.
+      if (options.characterReferences.length > 0) {
         setProgress({ currentStep: "Analyzing character references...", percentage: 5 });
+        // Use a dedicated vision model for this analysis task
         characterDescriptions = await generateCharacterDescriptions(apiKey, options.characterReferences, "gemini-pro-vision");
       }
 
@@ -51,9 +50,10 @@ const App: React.FC = () => {
       setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 10 });
 
       if (options.generationService === GenerationService.GEMINI) {
+        // Pass the raw references; the service will handle them internally
         scenePrompts = await generateScenePrompts(apiKey, options);
       } else {
-        // Pass the pre-processed descriptions to Pollinations
+        // Pass the pre-processed text descriptions to Pollinations
         scenePrompts = await generateScenePromptsWithPollinations(options, characterDescriptions);
       }
 
@@ -74,7 +74,7 @@ const App: React.FC = () => {
       const totalPanels = scenePrompts.length;
       setProgress({
         currentStep: `Generated ${totalPanels} prompts. Starting image generation...`,
-        percentage: 25, // Update progress after scene gen
+        percentage: 25,
         totalPanels: totalPanels
       });
 
@@ -94,8 +94,7 @@ const App: React.FC = () => {
           if (options.generationService === GenerationService.GEMINI) {
             imageUrl = await generateImageForPrompt(
               apiKey, panel.image_prompt, options.aspectRatio,
-              options.imageModel, options.style, options.era,
-              options.characterReferences
+              options.imageModel, options.style, options.era
             );
           } else {
             imageUrl = await generateImageForPromptWithPollinations(
@@ -129,14 +128,12 @@ const App: React.FC = () => {
       setTimeout(() => setIsLoading(false), 2000);
     }
   }, [apiKey]);
-
-  const handleDownloadPdf = useCallback(async () => {
-    // PDF generation code remains the same...
-  }, [comicPanels, isLoading, currentAspectRatio]);
+  
+  // PDF Download and component render are unchanged.
 
   return (
     <div className="app-container">
-      <header className="app-header">
+       <header className="app-header">
         <h1 className="type-display-large">AI Comic Creator</h1>
         <p className="type-body-large">
           Turn your stories into stunning comic strips! Provide your narrative, choose your style, and let AI bring your vision to life.
