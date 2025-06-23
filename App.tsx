@@ -1,289 +1,299 @@
-import React, { useState, useCallback } from 'react';
-import jsPDF from 'jspdf';
-import StoryInputForm from './components/StoryInputForm';
-import ComicDisplay from './components/ComicDisplay';
-import LoadingSpinner from './components/LoadingSpinner';
-import { StoryInputOptions, ComicPanelData, GenerationProgress, AspectRatio, GenerationService } from './types';
+import React, { useState, useEffect } from 'react';
+import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, CaptionPlacement, GenerationService, CharacterReference } from '../types';
 import {
-  generateScenePrompts,
-  generateImageForPrompt,
-  generateScenePromptsWithPollinations,
-  generateImageForPromptWithPollinations
-} from './services/geminiService';
-import { AVAILABLE_ASPECT_RATIOS } from './constants';
+  AVAILABLE_STYLES,
+  AVAILABLE_ERAS,
+  AVAILABLE_ASPECT_RATIOS,
+  MAX_COMIC_PAGES,
+  DEFAULT_NUM_PAGES,
+  MAX_CHARACTERS,
+  AVAILABLE_GEMINI_IMAGE_MODELS,
+  DEFAULT_GEMINI_IMAGE_MODEL,
+  AVAILABLE_GEMINI_TEXT_MODELS,
+  DEFAULT_TEXT_MODEL,
+  AVAILABLE_CAPTION_PLACEMENTS,
+  DEFAULT_CAPTION_PLACEMENT,
+  AVAILABLE_SERVICES,
+  DEFAULT_POLLINATIONS_IMAGE_MODEL,
+  DEFAULT_POLLINATIONS_TEXT_MODEL
+} from '../constants';
+import { listPollinationsImageModels, listPollinationsTextModels } from '../services/geminiService';
 
-const App: React.FC = () => {
-  const [apiKey, setApiKey] = useState<string>('');
-  const [comicPanels, setComicPanels] = useState<ComicPanelData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<GenerationProgress | undefined>(undefined);
-  const [currentAspectRatio, setCurrentAspectRatio] = useState<AspectRatio>(AVAILABLE_ASPECT_RATIOS[0].value);
+interface StoryInputFormProps {
+  onSubmit: (options: StoryInputOptions) => void;
+  isLoading: boolean;
+  isApiKeyProvided: boolean;
+  currentProgress?: GenerationProgress;
+}
 
-  const handleComicGeneration = useCallback(async (options: StoryInputOptions) => {
-    if (options.generationService === GenerationService.GEMINI && !apiKey.trim()) {
-      setError("Please enter your Gemini API Key to generate comics with the Gemini service.");
+const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, isApiKeyProvided, currentProgress }) => {
+  const [story, setStory] = useState('');
+  const [style, setStyle] = useState<ComicStyle>(AVAILABLE_STYLES[0].value);
+  const [era, setEra] = useState<ComicEra>(AVAILABLE_ERAS[0].value);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(AVAILABLE_ASPECT_RATIOS[0].value);
+  const [includeCaptions, setIncludeCaptions] = useState(true);
+  const [numPages, setNumPages] = useState<number>(DEFAULT_NUM_PAGES);
+  const [imageModel, setImageModel] = useState<string>(DEFAULT_GEMINI_IMAGE_MODEL);
+  const [textModel, setTextModel] = useState<string>(DEFAULT_TEXT_MODEL);
+  const [captionPlacement, setCaptionPlacement] = useState<CaptionPlacement>(DEFAULT_CAPTION_PLACEMENT);
+  const [generationService, setGenerationService] = useState<GenerationService>(AVAILABLE_SERVICES[0].value);
+  const [pollinationsImageModels, setPollinationsImageModels] = useState<{ value: string; label: string }[]>([]);
+  const [pollinationsTextModels, setPollinationsTextModels] = useState<{ value: string; label: string }[]>([]);
+  const [characters, setCharacters] = useState<CharacterReference[]>([]);
+  const [arePollinationsModelsLoading, setArePollinationsModelsLoading] = useState(false);
+
+  useEffect(() => {
+    if (generationService === GenerationService.POLLINATIONS) {
+      setArePollinationsModelsLoading(true);
+      Promise.all([listPollinationsImageModels(), listPollinationsTextModels()])
+        .then(([imageModels, textModels]) => {
+          setPollinationsImageModels(imageModels);
+          setPollinationsTextModels(textModels);
+          setImageModel(imageModels.find(m => m.value === DEFAULT_POLLINATIONS_IMAGE_MODEL)?.value || imageModels[0]?.value);
+          setTextModel(textModels.find(m => m.value === DEFAULT_POLLINATIONS_TEXT_MODEL)?.value || textModels[0]?.value);
+        })
+        .finally(() => setArePollinationsModelsLoading(false));
+    } else {
+      setTextModel(DEFAULT_TEXT_MODEL);
+      setImageModel(DEFAULT_GEMINI_IMAGE_MODEL);
+    }
+  }, [generationService]);
+
+  const handleAddCharacter = () => {
+    if (characters.length < MAX_CHARACTERS) {
+      setCharacters(prev => [...prev, { id: Date.now().toString(), name: '', file: null, imageDataUrl: null }]);
+    }
+  };
+
+  const handleRemoveCharacter = (id: string) => {
+    setCharacters(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleCharacterNameChange = (id: string, name: string) => {
+    setCharacters(prev => prev.map(c => (c.id === id ? { ...c, name } : c)));
+  };
+
+  const handleCharacterImageChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCharacters(prev => prev.map(c =>
+          c.id === id ? { ...c, file, imageDataUrl: reader.result as string } : c
+        ));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const validCharacters = characters.filter(c => c.name.trim() && c.file && c.imageDataUrl);
+    
+    // Key is required if Gemini service is selected OR if character references are used (for analysis)
+    if ((generationService === GenerationService.GEMINI || validCharacters.length > 0) && !isApiKeyProvided) {
+      alert("A Gemini API Key is required to use the Gemini service or the Character Reference feature.");
       return;
     }
-    setIsLoading(true);
-    setError(null);
-    setComicPanels([]);
-    setCurrentAspectRatio(options.aspectRatio);
-    setProgress(undefined);
 
-    let scenePrompts: ComicPanelData[] = [];
-
-    try {
-      setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 0 });
-
-      if (options.generationService === GenerationService.GEMINI) {
-        scenePrompts = await generateScenePrompts(apiKey, options);
-      } else {
-        scenePrompts = await generateScenePromptsWithPollinations(options);
-      }
-
-      // **FALLBACK LOGIC**
-      if (!scenePrompts || scenePrompts.length === 0) {
-        setError("Warning: The AI could not break the story into scenes. Generating a single image from the full story text instead.");
-        
-        scenePrompts = [{
-            scene_number: 1,
-            image_prompt: `${options.story}, in the style of ${options.style}, ${options.era}`,
-            caption: "Fallback: Full Story",
-            dialogues: ["Scene generation failed."],
-        }];
-      }
-
-      const initialPanels = scenePrompts.map(p => ({ ...p, imageUrl: undefined }));
-      setComicPanels(initialPanels);
-
-      const totalPanels = scenePrompts.length;
-      setProgress({
-        currentStep: `Generated ${totalPanels} prompts. Starting image generation...`,
-        percentage: 10,
-        totalPanels: totalPanels
-      });
-
-      for (let i = 0; i < totalPanels; i++) {
-        const panelProgressPercentage = 10 + ((i + 1) / totalPanels) * 90;
-        setProgress({
-          currentStep: `Generating image for panel ${i + 1}...`,
-          percentage: panelProgressPercentage,
-          currentPanel: i + 1,
-          totalPanels: totalPanels,
-        });
-
-        const panel = scenePrompts[i];
-        try {
-          let imageUrl: string;
-          if (options.generationService === GenerationService.GEMINI) {
-            imageUrl = await generateImageForPrompt(
-              apiKey, panel.image_prompt, options.aspectRatio,
-              options.imageModel, options.style, options.era,
-              options.characterReferences
-            );
-          } else {
-            imageUrl = await generateImageForPromptWithPollinations(
-              panel.image_prompt, options.imageModel, options.aspectRatio
-            );
-          }
-          setComicPanels(prevPanels =>
-            prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl } : p)
-          );
-        } catch (imgError) {
-          console.error(`Error generating image for panel ${panel.scene_number}:`, imgError);
-          setComicPanels(prevPanels =>
-            prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p)
-          );
-          setError(prevError => {
-            const imgErrMessage = imgError instanceof Error ? imgError.message : "Unknown image error";
-            const panelErrMessage = `Error on panel ${panel.scene_number}: ${imgErrMessage}`;
-            return prevError ? `${prevError}\n${panelErrMessage}` : panelErrMessage;
-          });
-        }
-      }
-      setProgress({ currentStep: "Comic generation complete!", percentage: 100, totalPanels: totalPanels, currentPanel: totalPanels });
-
-    } catch (err) {
-      console.error("Comic generation failed:", err);
-      let errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-      setError(errorMessage);
-      setComicPanels([]);
-      setProgress(undefined);
-    } finally {
-      setTimeout(() => setIsLoading(false), 2000);
+    if (!story.trim()) {
+      alert("Please enter a story.");
+      return;
     }
-  }, [apiKey]);
 
-  const handleDownloadPdf = useCallback(async () => {
-    if (comicPanels.length === 0 || isLoading) return;
+    onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement, generationService, characterReferences: validCharacters });
+  };
 
-    setIsDownloadingPdf(true);
-
-    try {
-      const isLandscape = currentAspectRatio === AspectRatio.LANDSCAPE;
-      const pdf = new jsPDF({
-        orientation: isLandscape ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const A4_WIDTH_MM = isLandscape ? 297 : 210;
-      const A4_HEIGHT_MM = isLandscape ? 210 : 297;
-      const MARGIN_MM = 10;
-      const MAX_IMG_WIDTH = A4_WIDTH_MM - 2 * MARGIN_MM;
-      const MAX_IMG_HEIGHT_AREA = A4_HEIGHT_MM * 0.65 - MARGIN_MM;
-      const TEXT_START_Y_OFFSET = 10;
-
-      for (let i = 0; i < comicPanels.length; i++) {
-        const panel = comicPanels[i];
-        if (i > 0) {
-          pdf.addPage();
-        }
-
-        pdf.setFontSize(10);
-        pdf.setTextColor(100);
-
-        pdf.text(`Panel ${panel.scene_number}`, MARGIN_MM, MARGIN_MM + 5);
-
-        if (panel.imageUrl && panel.imageUrl !== 'error') {
-          try {
-            const img = new Image();
-            img.src = panel.imageUrl;
-            await new Promise<void>((resolve, reject) => {
-                img.onload = () => resolve();
-                img.onerror = () => reject(new Error('Image failed to load for PDF generation.'));
-            });
-
-            let imgWidth = img.width;
-            let imgHeight = img.height;
-            const aspectRatioVal = imgWidth / imgHeight;
-
-            let pdfImgWidth = MAX_IMG_WIDTH;
-            let pdfImgHeight = pdfImgWidth / aspectRatioVal;
-
-            if (pdfImgHeight > MAX_IMG_HEIGHT_AREA) {
-              pdfImgHeight = MAX_IMG_HEIGHT_AREA;
-              pdfImgWidth = pdfImgHeight * aspectRatioVal;
-            }
-
-            const imgX = (A4_WIDTH_MM - pdfImgWidth) / 2;
-            const imgY = MARGIN_MM + 10;
-
-            pdf.addImage(panel.imageUrl, 'JPEG', imgX, imgY, pdfImgWidth, pdfImgHeight);
-
-            let currentTextY = imgY + pdfImgHeight + TEXT_START_Y_OFFSET;
-
-            if (panel.caption) {
-              pdf.setFontSize(12);
-              pdf.setTextColor(0);
-              const captionLines = pdf.splitTextToSize(`Caption: ${panel.caption}`, MAX_IMG_WIDTH);
-              pdf.text(captionLines, MARGIN_MM, currentTextY);
-              currentTextY += (captionLines.length * 5) + 5;
-            }
-
-            if (panel.dialogues && panel.dialogues.length > 0) {
-              pdf.setFontSize(10);
-              pdf.setTextColor(50);
-              panel.dialogues.forEach(dialogue => {
-                if (currentTextY > A4_HEIGHT_MM - MARGIN_MM - 10) {
-                    pdf.addPage();
-                    currentTextY = MARGIN_MM;
-                     pdf.text(`Panel ${panel.scene_number} (cont.)`, MARGIN_MM, currentTextY);
-                     currentTextY +=10;
-                }
-                const dialogueLines = pdf.splitTextToSize(dialogue, MAX_IMG_WIDTH);
-                pdf.text(dialogueLines, MARGIN_MM, currentTextY);
-                currentTextY += (dialogueLines.length * 4) + 2;
-              });
-            }
-          } catch (e) {
-            console.error("Error processing image for PDF for panel " + panel.scene_number, e);
-            const errorTextY = MARGIN_MM + 20;
-            pdf.setTextColor(255,0,0);
-            pdf.text("Error loading image for this panel.", MARGIN_MM, errorTextY, {maxWidth: MAX_IMG_WIDTH});
-            pdf.setTextColor(0);
-          }
-        } else {
-           const errorTextY = MARGIN_MM + 20;
-          pdf.setFontSize(12);
-          pdf.setTextColor(255,0,0);
-          pdf.text(panel.imageUrl === 'error' ? "Image generation failed for this panel." : "Image not available for this panel.", MARGIN_MM, errorTextY, {maxWidth: MAX_IMG_WIDTH});
-          pdf.setTextColor(0);
-        }
-      }
-      pdf.save('ai-comic.pdf');
-    } catch (e) {
-      console.error("Failed to generate PDF:", e);
-      setError(e instanceof Error ? e.message : "An unknown error occurred while generating the PDF.");
-    } finally {
-      setIsDownloadingPdf(false);
-    }
-  }, [comicPanels, isLoading, currentAspectRatio]);
+  const isSubmitDisabled = isLoading || ((generationService === GenerationService.GEMINI || characters.some(c=>c.file)) && !isApiKeyProvided);
 
   return (
-    <div className="app-container">
-      <header className="app-header">
-        <h1 className="type-display-large">AI Comic Creator</h1>
-        <p className="type-body-large">
-          Turn your stories into stunning comic strips! Provide your narrative, choose your style, and let AI bring your vision to life.
-        </p>
-      </header>
+    <form onSubmit={handleSubmit} className="story-input-form-container">
+      {/* Story Textarea */}
+      <div className="form-group">
+        <label htmlFor="story" className="form-label">Your Story:</label>
+        <textarea
+          id="story" value={story} onChange={(e) => setStory(e.target.value)}
+          rows={8} className="form-textarea" placeholder="Type or paste your comic story here..."
+          required minLength={50} maxLength={60000}
+        />
+        <p className="input-description">Min. 50 characters.</p>
+      </div>
 
-      <main>
-        {isLoading && <LoadingSpinner progress={progress} message={!progress && isLoading ? "Preparing your comic..." : undefined} />}
-        
-        <section className="api-key-section">
-          <div className="form-input-container">
-            <label htmlFor="apiKey" className="form-label">Your Gemini API Key (Optional)</label>
+       <div className="form-group">
+        <label htmlFor="generationService" className="form-label">AI Service:</label>
+        <div className="form-select-wrapper">
+          <select id="generationService" value={generationService} onChange={(e) => setGenerationService(e.target.value as GenerationService)} className="form-select">
+            {AVAILABLE_SERVICES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* CHARACTER REFERENCE SECTION */}
+      <div className="form-group character-reference-section">
+        <label className="form-label" style={{ paddingLeft: 0, fontSize: '1rem', marginBottom: '1rem' }}>
+          Character References (Optional)
+        </label>
+        <p className="input-description" style={{ paddingLeft: 0, marginTop: '-0.75rem', marginBottom: '1rem' }}>
+          Add characters for consistency. <b>A Gemini API Key is required for this feature</b> to analyze the images, even when using Pollinations.
+        </p>
+        <div className="character-inputs-container">
+          {characters.map((char, index) => (
+            <div key={char.id} className="character-input-group">
+              <div className="character-image-preview">
+                {char.imageDataUrl ? (
+                  <img src={char.imageDataUrl} alt={`Preview for ${char.name || 'character'}`} />
+                ) : (
+                  <div className="character-image-placeholder">
+                    <span className="material-icons-outlined">add_photo_alternate</span>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  className="character-image-input"
+                  onChange={(e) => handleCharacterImageChange(char.id, e)}
+                  aria-label={`Upload image for character ${index + 1}`}
+                />
+              </div>
+              <div className="character-details">
+                <input
+                  type="text"
+                  value={char.name}
+                  onChange={(e) => handleCharacterNameChange(char.id, e.target.value)}
+                  placeholder={`Character ${index + 1} Name`}
+                  className="form-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveCharacter(char.id)}
+                  className="btn-remove-char"
+                  aria-label={`Remove character ${index + 1}`}
+                >
+                  <span className="material-icons-outlined">delete</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        {characters.length < MAX_CHARACTERS && ( <button type="button" onClick={handleAddCharacter} className="btn btn-tertiary" style={{marginTop: '1rem'}}> <span className="material-icons-outlined">add</span> Add Character </button> )}
+      </div>
+
+      {/* Style and Era Grid */}
+      <div className="form-group-grid">
+        <div className="form-group">
+          <label htmlFor="style" className="form-label">Comic Style:</label>
+          <div className="form-select-wrapper">
+            <select id="style" value={style} onChange={(e) => setStyle(e.target.value as ComicStyle)} className="form-select">
+              {AVAILABLE_STYLES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="form-group">
+          <label htmlFor="era" className="form-label">Comic Era:</label>
+          <div className="form-select-wrapper">
+            <select id="era" value={era} onChange={(e) => setEra(e.target.value as ComicEra)} className="form-select">
+              {AVAILABLE_ERAS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      {/* Aspect Ratio and Num Pages Grid */}
+      <div className="form-group-grid">
+        <div className="form-group">
+          <label htmlFor="aspectRatio" className="form-label">Image Aspect Ratio:</label>
+          <div className="form-select-wrapper">
+            <select id="aspectRatio" value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value as AspectRatio)} className="form-select">
+              {AVAILABLE_ASPECT_RATIOS.map(ar => <option key={ar.value} value={ar.value}>{ar.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="form-group">
+          <label htmlFor="numPages" className="form-label">Number of Pages (1-{MAX_COMIC_PAGES})</label>
+           <div className="form-input-container" style={{paddingTop: '0.25rem', paddingBottom:'0.25rem', borderRadius: 'var(--md-sys-shape-corner-extra-small)'}}>
             <input
-              type="password" id="apiKey" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-              className="form-input" placeholder="Enter here to use premium Gemini models"
-              aria-describedby="apiKeyHelp"
+              type="number" id="numPages" value={numPages}
+              onChange={(e) => setNumPages(Math.max(1, Math.min(MAX_COMIC_PAGES, parseInt(e.target.value, 10) || 1)))}
+              min="1" max={MAX_COMIC_PAGES} className="form-input" style={{paddingTop: '0.5rem', paddingBottom: '0.5rem'}}
             />
           </div>
-          <p id="apiKeyHelp" className="input-description">
-            Required only for Gemini models. Pollinations models are free and do not need a key. Your key is not stored.
-          </p>
-        </section>
+        </div>
+      </div>
 
-        <StoryInputForm
-            onSubmit={handleComicGeneration} isLoading={isLoading}
-            isApiKeyProvided={!!apiKey.trim()} currentProgress={progress}
-        />
-
-        {error && (
-          <div className="error-message-container">
-            <h3 className="type-title-medium">Operation Status</h3>
-            {error.split('\n').map((errMsg, index) => <p key={index}>{errMsg}</p>)}
-            <button onClick={() => setError(null)} className="btn error-dismiss-btn" aria-label="Dismiss message">
-              Dismiss
-            </button>
+      {/* DYNAMIC MODEL SELECTION */}
+       <div className="form-group-grid">
+        <div className="form-group">
+            <label htmlFor="textModel" className="form-label">Text Generation Model:</label>
+            <div className="form-select-wrapper">
+              <select 
+                id="textModel" value={textModel} onChange={(e) => setTextModel(e.target.value)} 
+                className="form-select" disabled={arePollinationsModelsLoading}
+              >
+                { generationService === GenerationService.GEMINI && AVAILABLE_GEMINI_TEXT_MODELS.map(tm => <option key={tm.value} value={tm.value}>{tm.label}</option>) }
+                { generationService === GenerationService.POLLINATIONS && (
+                    arePollinationsModelsLoading ? <option>Loading models...</option> :
+                    pollinationsTextModels.map(tm => <option key={tm.value} value={tm.value}>{tm.label}</option>)
+                )}
+              </select>
+            </div>
           </div>
-        )}
-
-        {comicPanels.length > 0 && !isLoading && (
-          <div className="centered-action-button-container">
-            <button
-              onClick={handleDownloadPdf} disabled={isDownloadingPdf}
-              className="btn btn-success" aria-label="Download Comic as PDF"
+        <div className="form-group">
+          <label htmlFor="imageModel" className="form-label">Image Generation Model:</label>
+          <div className="form-select-wrapper">
+            <select
+              id="imageModel" value={imageModel} onChange={(e) => setImageModel(e.target.value)}
+              className="form-select" disabled={arePollinationsModelsLoading}
             >
-              <span className="material-icons-outlined">download</span>
-              {isDownloadingPdf ? 'Generating PDF...' : 'Download Comic as PDF'}
-            </button>
+              { generationService === GenerationService.GEMINI && AVAILABLE_GEMINI_IMAGE_MODELS.map(im => <option key={im.value} value={im.value}>{im.label}</option>) }
+              { generationService === GenerationService.POLLINATIONS && (
+                    arePollinationsModelsLoading ? <option>Loading models...</option> :
+                    pollinationsImageModels.map(im => <option key={im.value} value={im.value}>{im.label}</option>)
+                )}
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      {/* Captions Section */}
+      <div className="form-group">
+        <div className="checkbox-group" style={{marginBottom: '0.5rem'}}>
+          <input
+            id="includeCaptions" type="checkbox" checked={includeCaptions}
+            onChange={(e) => setIncludeCaptions(e.target.checked)} className="checkbox-input"
+          />
+          <label htmlFor="includeCaptions" className="checkbox-label">Include Captions & Dialogues</label>
+        </div>
+        {includeCaptions && (
+          <div className="form-group" style={{marginTop: '0.5rem', marginLeft: '1.5rem'}}>
+            <label htmlFor="captionPlacement" className="form-label" style={{paddingLeft: 0, fontSize:'0.8rem'}}>Placement:</label>
+            <div className="form-select-wrapper">
+              <select
+                id="captionPlacement" value={captionPlacement} onChange={(e) => setCaptionPlacement(e.target.value as CaptionPlacement)}
+                className="form-select" disabled={!includeCaptions}
+              >
+                {AVAILABLE_CAPTION_PLACEMENTS.map(cp => <option key={cp.value} value={cp.value}>{cp.label}</option>)}
+              </select>
+            </div>
+             <p className="input-description" style={{paddingLeft: 0, fontSize:'0.7rem'}}>Note: Embedding in image is experimental.</p>
           </div>
         )}
+      </div>
 
-        <ComicDisplay panels={comicPanels} aspectRatioSetting={currentAspectRatio} />
-      </main>
-
-      <footer className="app-footer">
-        <p>Powered by Gemini and Pollinations AI.</p>
-         <p className="footer-fineprint">Comic Creator v3.2 - Final</p>
-      </footer>
-    </div>
+      <button
+        type="submit" disabled={isSubmitDisabled}
+        className="btn btn-primary btn-full-width"
+        aria-label={isSubmitDisabled ? "API Key required" : "Create My Comic!"}
+      >
+        <span className="material-icons-outlined">auto_awesome</span>
+        {isLoading ? 'Generating Your Comic...' : 'Create My Comic!'}
+      </button>
+      {isSubmitDisabled && !isLoading && (
+        <p className="input-description" style={{ textAlign: 'center', color: 'var(--md-sys-color-tertiary)'}}>
+          A Gemini API Key is required for the selected service or for character references.
+        </p>
+      )}
+    </form>
   );
 };
 
-export default App;
+export default StoryInputForm;
