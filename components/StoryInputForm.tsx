@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, CaptionPlacement, GenerationService } from '../types';
+import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, CaptionPlacement, GenerationService, CharacterReference } from '../types';
 import {
   AVAILABLE_STYLES,
   AVAILABLE_ERAS,
   AVAILABLE_ASPECT_RATIOS,
   MAX_COMIC_PAGES,
   DEFAULT_NUM_PAGES,
+  MAX_CHARACTERS,
   AVAILABLE_GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL,
   AVAILABLE_GEMINI_TEXT_MODELS,
@@ -38,6 +39,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
   const [generationService, setGenerationService] = useState<GenerationService>(AVAILABLE_SERVICES[0].value);
   const [pollinationsImageModels, setPollinationsImageModels] = useState<{ value: string; label: string }[]>([]);
   const [pollinationsTextModels, setPollinationsTextModels] = useState<{ value: string; label: string }[]>([]);
+  const [characters, setCharacters] = useState<CharacterReference[]>([]);
   const [arePollinationsModelsLoading, setArePollinationsModelsLoading] = useState(false);
 
   useEffect(() => {
@@ -57,6 +59,33 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
     }
   }, [generationService]);
 
+  const handleAddCharacter = () => {
+    if (characters.length < MAX_CHARACTERS) {
+      setCharacters(prev => [...prev, { id: Date.now().toString(), name: '', file: null, imageDataUrl: null }]);
+    }
+  };
+
+  const handleRemoveCharacter = (id: string) => {
+    setCharacters(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleCharacterNameChange = (id: string, name: string) => {
+    setCharacters(prev => prev.map(c => (c.id === id ? { ...c, name } : c)));
+  };
+
+  const handleCharacterImageChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCharacters(prev => prev.map(c =>
+          c.id === id ? { ...c, file, imageDataUrl: reader.result as string } : c
+        ));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (generationService === GenerationService.GEMINI && !isApiKeyProvided) {
@@ -67,7 +96,8 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
       alert("Please enter a story.");
       return;
     }
-    onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement, generationService });
+    const validCharacters = characters.filter(c => c.name.trim() && c.file && c.imageDataUrl);
+    onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement, generationService, characterReferences: validCharacters });
   };
 
   const isSubmitDisabled = isLoading || (generationService === GenerationService.GEMINI && !isApiKeyProvided);
@@ -93,6 +123,60 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           </select>
         </div>
       </div>
+
+      {/* CHARACTER REFERENCE SECTION */}
+      {generationService === GenerationService.GEMINI && (
+        <div className="form-group character-reference-section">
+          <label className="form-label" style={{ paddingLeft: 0, fontSize: '1rem', marginBottom: '1rem' }}>
+            Character References (Optional, Gemini Only)
+          </label>
+          <p className="input-description" style={{ paddingLeft: 0, marginTop: '-0.75rem', marginBottom: '1rem' }}>
+            Add up to {MAX_CHARACTERS} character images for better consistency.
+            If using '{AVAILABLE_GEMINI_IMAGE_MODELS[1].label}', images are sent directly to the image model.
+            For other models, a text description is generated from the image first.
+          </p>
+          <div className="character-inputs-container">
+            {characters.map((char, index) => (
+              <div key={char.id} className="character-input-group">
+                <div className="character-image-preview">
+                  {char.imageDataUrl ? (
+                    <img src={char.imageDataUrl} alt={`Preview for ${char.name || 'character'}`} />
+                  ) : (
+                    <div className="character-image-placeholder">
+                      <span className="material-icons-outlined">add_photo_alternate</span>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    className="character-image-input"
+                    onChange={(e) => handleCharacterImageChange(char.id, e)}
+                    aria-label={`Upload image for character ${index + 1}`}
+                  />
+                </div>
+                <div className="character-details">
+                  <input
+                    type="text"
+                    value={char.name}
+                    onChange={(e) => handleCharacterNameChange(char.id, e.target.value)}
+                    placeholder={`Character ${index + 1} Name`}
+                    className="form-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCharacter(char.id)}
+                    className="btn-remove-char"
+                    aria-label={`Remove character ${index + 1}`}
+                  >
+                    <span className="material-icons-outlined">delete</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {characters.length < MAX_CHARACTERS && ( <button type="button" onClick={handleAddCharacter} className="btn btn-tertiary" style={{marginTop: '1rem'}}> <span className="material-icons-outlined">add</span> Add Character </button> )}
+        </div>
+      )}
 
       {/* Style and Era Grid - Unchanged */}
       <div className="form-group-grid">
