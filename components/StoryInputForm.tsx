@@ -50,7 +50,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           setPollinationsImageModels(imageModels);
           setPollinationsTextModels(textModels);
           setImageModel(imageModels.find(m => m.value === DEFAULT_POLLINATIONS_IMAGE_MODEL)?.value || imageModels[0]?.value);
-          setTextModel(textModels.find(m => m.value === 'gpt-4-vision-preview' || m.value === DEFAULT_POLLINATIONS_TEXT_MODEL)?.value || textModels[0]?.value);
+          setTextModel(textModels.find(m => m.value === DEFAULT_POLLINATIONS_TEXT_MODEL)?.value || textModels[0]?.value);
         })
         .finally(() => setArePollinationsModelsLoading(false));
     } else {
@@ -88,19 +88,23 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (generationService === GenerationService.GEMINI && !isApiKeyProvided) {
-      alert("Please enter your Gemini API Key above to use the Gemini service.");
+    const validCharacters = characters.filter(c => c.name.trim() && c.file && c.imageDataUrl);
+    
+    // Key is required if Gemini service is selected OR if character references are used (for analysis)
+    if ((generationService === GenerationService.GEMINI || validCharacters.length > 0) && !isApiKeyProvided) {
+      alert("A Gemini API Key is required to use the Gemini service or the Character Reference feature.");
       return;
     }
+
     if (!story.trim()) {
       alert("Please enter a story.");
       return;
     }
-    const validCharacters = characters.filter(c => c.name.trim() && c.file && c.imageDataUrl);
+
     onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement, generationService, characterReferences: validCharacters });
   };
 
-  const isSubmitDisabled = isLoading || (generationService === GenerationService.GEMINI && !isApiKeyProvided);
+  const isSubmitDisabled = isLoading || ((generationService === GenerationService.GEMINI || characters.some(c=>c.file)) && !isApiKeyProvided);
 
   return (
     <form onSubmit={handleSubmit} className="story-input-form-container">
@@ -130,7 +134,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           Character References (Optional)
         </label>
         <p className="input-description" style={{ paddingLeft: 0, marginTop: '-0.75rem', marginBottom: '1rem' }}>
-          Add character images for better consistency. If the selected Text Model supports vision (e.g., GPT-4V, Gemini), it will use them directly.
+          Add characters for consistency. <b>A Gemini API Key is required for this feature</b> to analyze the images, even when using Pollinations.
         </p>
         <div className="character-inputs-container">
           {characters.map((char, index) => (
@@ -278,20 +282,15 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
       <button
         type="submit" disabled={isSubmitDisabled}
         className="btn btn-primary btn-full-width"
-        aria-label={isSubmitDisabled ? "API Key required for Gemini" : "Create My Comic!"}
+        aria-label={isSubmitDisabled ? "API Key required" : "Create My Comic!"}
       >
         <span className="material-icons-outlined">auto_awesome</span>
         {isLoading ? 'Generating Your Comic...' : 'Create My Comic!'}
       </button>
       {isSubmitDisabled && !isLoading && (
         <p className="input-description" style={{ textAlign: 'center', color: 'var(--md-sys-color-tertiary)'}}>
-          Please enter your Gemini API Key to enable comic creation with Gemini.
+          A Gemini API Key is required for the selected service or for character references.
         </p>
-      )}
-      {/* Progress Bar */}
-      {isLoading && currentProgress && (
-        <div className="form-progress-container">
-        </div>
       )}
     </form>
   );
