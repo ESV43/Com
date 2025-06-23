@@ -1,0 +1,6 @@
+{
+  "name": "AI Comic Creator",
+  "description": "A web application that generates a comic strip from a user-provided story, using AI for scene breakdown, image prompt generation, and image creation. Users can customize style, era, aspect ratio, and optionally include captions/dialogues.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

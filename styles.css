@@ -1,0 +1,683 @@
+:root {
+  /* Material 3 Dark & Neon Colourful Theme */
+  /* Primary: Vibrant Neon Purple */
+  --md-sys-color-primary: #BB86FC; /* Brighter purple for neon feel on dark */
+  --md-sys-color-on-primary: #000000; /* Black text on bright purple */
+  --md-sys-color-primary-container: #3700B3; /* Darker purple, but still vibrant base */
+  --md-sys-color-on-primary-container: #F3E5F5; /* Light purple/lavender for text on container */
+
+  /* Secondary: Expressive Neon Teal/Cyan */
+  --md-sys-color-secondary: #03DAC6; /* Bright Teal/Cyan */
+  --md-sys-color-on-secondary: #000000; /* Black text on bright teal */
+  --md-sys-color-secondary-container: #00504D; /* Dark Teal base */
+  --md-sys-color-on-secondary-container: #A0F2E7; /* Light Teal for text */
+
+  /* Tertiary: Warm Neon Pink/Magenta */
+  --md-sys-color-tertiary: #F06292; /* Bright Pink */
+  --md-sys-color-on-tertiary: #000000; /* Black text on bright pink */
+  --md-sys-color-tertiary-container: #7A1F45; /* Dark Pink base */
+  --md-sys-color-on-tertiary-container: #FFD9E2; /* Light Pink for text */
+
+  /* Error: Bright Neon Red */
+  --md-sys-color-error: #CF6679; /* Soft, but clear red for dark themes */
+  --md-sys-color-on-error: #000000;
+  --md-sys-color-error-container: #B00020; /* Darker, saturated red base for errors */
+  --md-sys-color-on-error-container: #F9DEDC;
+
+  /* Dark Background & Surfaces */
+  --md-sys-color-background: #121212; /* Very dark grey, standard for dark themes */
+  --md-sys-color-on-background: #E0E0E0; /* Light grey for text */
+
+  --md-sys-color-surface: #1E1E1E; /* Slightly lighter than background for cards etc. */
+  --md-sys-color-on-surface: #E0E0E0;
+  --md-sys-color-surface-variant: #303030; /* For less prominent elements or borders */
+  --md-sys-color-on-surface-variant: #BDBDBD; /* Muted light grey */
+  
+  --md-sys-color-surface-container-highest: #383838;
+  --md-sys-color-surface-container-high: #2C2C2C;
+  --md-sys-color-surface-container: #222222; /* Default container surface */
+  --md-sys-color-surface-container-low: #1A1A1A;
+  --md-sys-color-surface-container-lowest: #121212; /* Can be same as background */
+
+  --md-sys-color-outline: #757575; /* Medium grey for outlines */
+  --md-sys-color-outline-variant: #4F4F4F; /* Darker grey for subtle dividers */
+
+  --md-sys-color-shadow: rgba(0,0,0,0.5); /* Shadows are more subtle on dark themes */
+  --md-sys-color-scrim: rgba(0,0,0,0.7); /* Darker scrim for more opacity */
+
+  /* Shape (remains the same) */
+  --md-sys-shape-corner-none: 0px;
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-full: 9999px;
+
+  /* Typography (remains the same) */
+  --md-sys-font-family-sans: 'Inter', sans-serif;
+
+  /* Elevation (Shadows adapted for dark theme - may rely more on border/surface diff) */
+  --md-sys-elevation-level-0: none;
+  --md-sys-elevation-level-1: 0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12);
+  --md-sys-elevation-level-2: 0px 3px 5px -1px rgba(0,0,0,0.2), 0px 6px 10px 0px rgba(0,0,0,0.14), 0px 1px 18px 0px rgba(0,0,0,0.12);
+  --md-sys-elevation-level-3: 0px 4px 8px -2px rgba(0,0,0,0.2), 0px 8px 10px 1px rgba(0,0,0,0.14), 0px 3px 14px 2px rgba(0,0,0,0.12);
+  --md-sys-elevation-level-4: 0px 6px 10px -2px rgba(0,0,0,0.2), 0px 10px 14px 1px rgba(0,0,0,0.14), 0px 4px 18px 3px rgba(0,0,0,0.12);
+  --md-sys-elevation-level-5: 0px 8px 12px -3px rgba(0,0,0,0.2), 0px 12px 17px 2px rgba(0,0,0,0.14), 0px 5px 22px 4px rgba(0,0,0,0.12);
+}
+
+/* Basic Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px; 
+}
+
+body {
+  font-family: var(--md-sys-font-family-sans);
+  background-color: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-background);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding: 1rem;
+}
+
+/* Custom Scrollbar - Dark Theme */
+::-webkit-scrollbar {
+  width: 12px; /* Slightly wider for easier interaction */
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: var(--md-sys-color-surface-variant); /* Dark track */
+  border-radius: var(--md-sys-shape-corner-small);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--md-sys-color-primary); /* Neon thumb */
+  border-radius: var(--md-sys-shape-corner-small);
+  border: 2px solid var(--md-sys-color-surface-variant); /* Border to make thumb distinct */
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--md-sys-color-secondary); /* Neon secondary on hover */
+}
+
+/* Selection highlight - Dark Theme */
+::selection {
+  background-color: var(--md-sys-color-primary); /* Neon background */
+  color: var(--md-sys-color-on-primary); /* Contrasting text */
+}
+
+/* Typography Classes (Simplified M3 Scale) - Color should be inherited or explicitly set for contrast */
+.type-display-large { font-size: 3.5625rem; line-height: 4rem; font-weight: 400; letter-spacing: -0.015625em; }
+.type-headline-large { font-size: 2rem; line-height: 2.5rem; font-weight: 500; }
+.type-headline-medium { font-size: 1.75rem; line-height: 2.25rem; font-weight: 500; }
+.type-title-large { font-size: 1.375rem; line-height: 1.75rem; font-weight: 500; }
+.type-title-medium { font-size: 1rem; line-height: 1.5rem; font-weight: 600; letter-spacing: 0.009375em; }
+.type-title-small { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; letter-spacing: 0.00714em; }
+.type-body-large { font-size: 1rem; line-height: 1.5rem; font-weight: 400; letter-spacing: 0.03125em; }
+.type-body-medium { font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; letter-spacing: 0.01786em; }
+.type-label-large { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; letter-spacing: 0.00714em; }
+.type-label-medium { font-size: 0.75rem; line-height: 1rem; font-weight: 600; letter-spacing: 0.0333em; }
+
+/* Global Container */
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* Header */
+.app-header {
+  text-align: center;
+  margin-bottom: 2.5rem; /* 40px */
+}
+.app-header h1.type-display-large {
+  background: linear-gradient(90deg, var(--md-sys-color-primary), var(--md-sys-color-secondary), var(--md-sys-color-tertiary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+  /* Optional: add text-shadow for more "glow" on dark theme */
+  /* text-shadow: 0 0 5px var(--md-sys-color-primary), 0 0 10px var(--md-sys-color-secondary); */
+}
+.app-header p.type-body-large {
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+  max-width: 600px;
+  margin: 0.5rem auto 0;
+}
+
+/* API Key Input Section */
+.api-key-section {
+  background-color: var(--md-sys-color-surface-container-high); /* Dark surface */
+  padding: 1.5rem; /* 24px */
+  border-radius: var(--md-sys-shape-corner-large); /* 16px */
+  margin: 0 auto 2rem;
+  max-width: 768px; /* Consistent with form max-width */
+  box-shadow: var(--md-sys-elevation-level-1);
+  border: 1px solid var(--md-sys-color-outline-variant); /* Subtle border for definition */
+}
+
+/* Form Elements Styling - Dark Theme */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+.form-group-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+@media (min-width: 768px) {
+  .form-group-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem; /* 8px */
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text for labels */
+  font-family: var(--md-sys-font-family-sans);
+  font-size: 0.75rem;
+  padding-left: 1rem;
+}
+
+.form-input-container {
+  background-color: var(--md-sys-color-surface-container-lowest); /* Darker input bg */
+  border-radius: var(--md-sys-shape-corner-extra-small) var(--md-sys-shape-corner-extra-small) 0 0;
+  padding: 0.25rem 1rem 0.75rem 1rem;
+  position: relative;
+  border-bottom: 1px solid var(--md-sys-color-outline); /* Medium grey outline */
+}
+.form-input-container:focus-within {
+  border-bottom: 2px solid var(--md-sys-color-primary); /* Neon primary focus */
+}
+.form-input-container .form-label {
+  padding-left: 0;
+  font-size: 0.75rem;
+  color: var(--md-sys-color-primary); /* Neon label on focus/filled */
+}
+
+.form-input, .form-textarea, .form-select {
+  width: 100%;
+  background-color: transparent;
+  color: var(--md-sys-color-on-surface); /* Light text for input */
+  border: none;
+  padding: 0.5rem 0 0.25rem 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  outline: none;
+  appearance: none; 
+}
+
+.form-textarea {
+  min-height: 120px;
+  resize: vertical;
+  background-color: var(--md-sys-color-surface-container); /* Slightly distinct dark bg for textarea */
+  border: 1px solid var(--md-sys-color-outline-variant); /* Darker subtle border */
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  padding: 1rem;
+}
+.form-textarea:focus {
+  border-color: var(--md-sys-color-primary); /* Neon focus */
+  box-shadow: 0 0 0 1px var(--md-sys-color-primary); /* Subtle neon glow */
+}
+
+.form-select {
+   padding: 0.75rem 1rem;
+   background-color: var(--md-sys-color-surface-container); /* Dark bg for select */
+   border: 1px solid var(--md-sys-color-outline-variant); /* Darker subtle border */
+   border-radius: var(--md-sys-shape-corner-extra-small);
+}
+.form-select:focus {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 1px var(--md-sys-color-primary);
+}
+
+
+.form-select-wrapper {
+  position: relative;
+}
+.form-select-wrapper::after { /* Custom arrow for select */
+  content: 'expand_more';
+  font-family: 'Material Icons Outlined';
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--md-sys-color-on-surface-variant); /* Muted light arrow */
+  pointer-events: none;
+  font-size: 1.5rem;
+}
+
+
+.input-description {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+  padding-left: 1rem;
+}
+
+/* Checkbox - Dark Theme */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 0;
+}
+.checkbox-input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.75rem;
+  accent-color: var(--md-sys-color-primary); /* Neon accent */
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  border: 2px solid var(--md-sys-color-outline); /* Medium grey border */
+  background-color: var(--md-sys-color-surface); /* Dark surface for checkbox */
+  cursor: pointer;
+  appearance: none; 
+  position: relative;
+  flex-shrink: 0;
+}
+.checkbox-input:checked {
+  background-color: var(--md-sys-color-primary); /* Neon fill when checked */
+  border-color: var(--md-sys-color-primary);
+}
+.checkbox-input:checked::before {
+  content: '✓';
+  color: var(--md-sys-color-on-primary); /* Contrasting checkmark (black if primary is bright) */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.875rem;
+  font-weight: bold;
+}
+.checkbox-input:focus {
+  outline: 2px solid var(--md-sys-color-primary-container); /* Darker purple container for focus ring */
+  outline-offset: 2px;
+}
+.checkbox-label {
+  color: var(--md-sys-color-on-surface); /* Light text for label */
+  font-size: 0.875rem;
+  cursor: pointer;
+  line-height: 1.25;
+}
+
+
+/* Buttons - Dark Theme */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--md-sys-font-family-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--md-sys-shape-corner-full);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  min-height: 40px;
+}
+
+.btn .material-icons-outlined {
+    margin-right: 8px;
+    font-size: 1.125rem;
+    vertical-align: middle;
+}
+
+.btn-primary {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary); /* Black on bright purple */
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 90%, #FFFFFF 10%); /* Slightly lighter on hover */
+  box-shadow: var(--md-sys-elevation-level-1);
+}
+.btn-primary:focus { /* Focus style might need a visible ring against dark buttons */
+  outline: 2px solid var(--md-sys-color-on-background);
+  outline-offset: 2px;
+}
+
+.btn-secondary {
+  background-color: var(--md-sys-color-secondary);
+  color: var(--md-sys-color-on-secondary); /* Black on bright teal */
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--md-sys-color-secondary) 90%, #FFFFFF 10%);
+  box-shadow: var(--md-sys-elevation-level-1);
+}
+.btn-secondary:focus {
+  outline: 2px solid var(--md-sys-color-on-background);
+  outline-offset: 2px;
+}
+
+.btn-tertiary {
+  background-color: var(--md-sys-color-tertiary);
+  color: var(--md-sys-color-on-tertiary); /* Black on bright pink */
+}
+.btn-tertiary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--md-sys-color-tertiary) 90%, #FFFFFF 10%);
+  box-shadow: var(--md-sys-elevation-level-1);
+}
+.btn-tertiary:focus {
+  outline: 2px solid var(--md-sys-color-on-background);
+  outline-offset: 2px;
+}
+
+.btn-success { /* Download button: a distinct neon green for dark theme */
+  background-color: #4CAF50; /* Neon-ish Green */
+  color: #000000; /* Black text */
+}
+.btn-success:hover:not(:disabled) {
+  background-color: color-mix(in srgb, #4CAF50 90%, #FFFFFF 10%);
+  box-shadow: var(--md-sys-elevation-level-1);
+}
+
+.btn:disabled {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent); /* More transparent disabled */
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent); /* More transparent disabled text */
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-full-width {
+  width: 100%;
+}
+
+/* Story Input Form Container - Dark Theme */
+.story-input-form-container {
+  background-color: var(--md-sys-color-surface-container-high); /* Dark surface for form card */
+  padding: 1.5rem;
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: var(--md-sys-elevation-level-2);
+  max-width: 768px;
+  margin: 0 auto 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  border: 1px solid var(--md-sys-color-outline-variant); /* Subtle border for definition */
+}
+
+
+/* Error Message Styling - Dark Theme */
+.error-message-container {
+  background-color: var(--md-sys-color-error-container); /* Dark red base */
+  color: var(--md-sys-color-on-error-container); /* Light text on dark red */
+  padding: 1rem 1.5rem;
+  border-radius: var(--md-sys-shape-corner-medium);
+  margin: 2rem auto;
+  max-width: 768px;
+  border: 1px solid var(--md-sys-color-error); /* Bright red border */
+  box-shadow: var(--md-sys-elevation-level-1);
+}
+.error-message-container h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--md-sys-color-error); /* Bright red for title */
+}
+.error-message-container p {
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+.error-dismiss-btn {
+  background-color: var(--md-sys-color-error); /* Bright red button */
+  color: var(--md-sys-color-on-error); /* Black text on bright red */
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+}
+.error-dismiss-btn:hover:not(:disabled) {
+   background-color: color-mix(in srgb, var(--md-sys-color-error) 90%, #FFFFFF 10%);
+}
+
+/* Comic Display - Dark Theme */
+.comic-display-container {
+  margin-top: 3rem;
+  margin-bottom: 2rem;
+}
+.comic-display-title {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: var(--md-sys-color-primary); /* Neon primary for title */
+}
+.comic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0; 
+}
+
+/* Comic Panel (Card) - Dark Theme */
+.comic-panel {
+  background-color: var(--md-sys-color-surface-container-highest); /* Dark card surface */
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: var(--md-sys-elevation-level-2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  border: 1px solid var(--md-sys-color-outline-variant); /* Subtle dark border */
+}
+.comic-panel:hover {
+  box-shadow: var(--md-sys-elevation-level-4);
+  border-color: var(--md-sys-color-primary); /* Neon border on hover */
+}
+
+.panel-image-wrapper {
+  width: 100%;
+  background-color: var(--md-sys-color-surface-variant); /* Dark placeholder bg */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.panel-image-wrapper.aspect-square { aspect-ratio: 1 / 1; }
+.panel-image-wrapper.aspect-portrait { aspect-ratio: 9 / 16; }
+.panel-image-wrapper.aspect-landscape { aspect-ratio: 16 / 9; }
+
+.panel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.panel-image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  height: 100%;
+}
+.panel-image-placeholder .material-icons-outlined {
+  font-size: 3rem;
+  color: var(--md-sys-color-primary); /* Neon primary for icon */
+  animation: pulse-dark 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
+  margin-bottom: 0.5rem;
+}
+@keyframes pulse-dark { /* Adjusted pulse for dark theme, maybe less opacity change */
+  0%, 100% { opacity: 0.8; transform: scale(0.95) }
+  50% { opacity: 1; transform: scale(1.05)}
+}
+.panel-image-placeholder span {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+}
+
+
+.panel-content {
+  padding: 1rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.panel-caption {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-surface); /* Light text */
+  font-style: italic;
+  line-height: 1.4;
+}
+.panel-caption strong {
+  color: var(--md-sys-color-primary); /* Neon primary for "Scene X:" */
+  font-weight: 600;
+}
+.panel-dialogues {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; 
+}
+.panel-dialogue {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-on-surface); /* Light text for dialogue */
+  background-color: var(--md-sys-color-surface-container); /* Slightly different dark bg for speech bubble */
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--md-sys-shape-corner-small);
+  line-height: 1.3;
+  border-left: 3px solid var(--md-sys-color-secondary); /* Neon teal accent for dialogues */
+}
+.panel-scene-number-only {
+ padding: 1rem;
+ font-size: 0.875rem;
+ color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+ font-style: italic;
+}
+
+
+/* Loading Spinner Overlay - Dark Theme */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--md-sys-color-scrim); /* Darker scrim */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 4px solid var(--md-sys-color-surface-variant); /* Dark track */
+  border-top-color: var(--md-sys-color-primary); /* Neon primary spinner */
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 1.5rem;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-message {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--md-sys-color-on-background); /* Light text on scrim */
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 3px var(--md-sys-color-background); /* Text shadow for readability */
+}
+.loading-progress-info {
+  width: 100%;
+  max-width: 320px;
+}
+.loading-progress-step {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-background);
+  margin-bottom: 0.5rem;
+   text-shadow: 0 0 3px var(--md-sys-color-background);
+}
+.loading-progress-panel-info {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+  margin-bottom: 0.75rem;
+}
+.loading-progress-bar-container {
+  width: 100%;
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent); /* Darker primary for track */
+  border-radius: var(--md-sys-shape-corner-full);
+  height: 0.5rem;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+.loading-progress-bar {
+  background-color: var(--md-sys-color-primary); /* Neon primary bar */
+  height: 100%;
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: width 0.3s ease-in-out;
+}
+.loading-progress-percentage {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-primary); /* Neon primary for percentage */
+  font-weight: bold;
+}
+
+/* Form Progress (inline, inside form card) - Dark Theme */
+.form-progress-container {
+  margin-top: 1rem;
+  text-align: center;
+  padding: 1rem;
+  background-color: var(--md-sys-color-surface-container); /* Dark surface */
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+.form-progress-step {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-primary); /* Neon primary text */
+  font-weight: 500;
+}
+.form-progress-panel-info {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+  margin-top: 0.25rem;
+}
+.form-progress-bar-container {
+  width: 100%;
+  background-color: var(--md-sys-color-surface-variant); /* Dark track */
+  border-radius: var(--md-sys-shape-corner-full);
+  height: 0.5rem;
+  margin-top: 0.75rem;
+  overflow: hidden;
+}
+.form-progress-bar {
+  background-color: var(--md-sys-color-primary); /* Neon primary bar */
+  height: 100%;
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: width 0.15s ease-linear;
+}
+.form-progress-percentage {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-primary); /* Neon primary text */
+  margin-top: 0.25rem;
+}
+
+/* Centered Button for Download */
+.centered-action-button-container {
+  text-align: center;
+  margin: 2.5rem 0;
+}
+
+/* Footer - Dark Theme */
+.app-footer {
+  text-align: center;
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--md-sys-color-outline-variant); /* Dark subtle border */
+}
+.app-footer p {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+}
+.app-footer .footer-fineprint {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-outline); /* Medium grey for fine print */
+  margin-top: 0.25rem;
+}
