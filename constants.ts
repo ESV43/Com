@@ -3,6 +3,7 @@ import { ComicStyle, ComicEra, AspectRatio, GenerationService, CaptionPlacement 
 
 export const MAX_COMIC_PAGES = 200;
 export const DEFAULT_NUM_PAGES = 6;
+export const MAX_CHARACTERS = 5;
 export const FIXED_IMAGE_SEED = 42;
 
 export const AVAILABLE_SERVICES: { value: GenerationService; label: string }[] = [
