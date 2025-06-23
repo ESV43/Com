@@ -50,7 +50,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           setPollinationsImageModels(imageModels);
           setPollinationsTextModels(textModels);
           setImageModel(imageModels.find(m => m.value === DEFAULT_POLLINATIONS_IMAGE_MODEL)?.value || imageModels[0]?.value);
-          setTextModel(textModels.find(m => m.value === DEFAULT_POLLINATIONS_TEXT_MODEL)?.value || textModels[0]?.value);
+          setTextModel(textModels.find(m => m.value === 'gpt-4-vision-preview' || m.value === DEFAULT_POLLINATIONS_TEXT_MODEL)?.value || textModels[0]?.value);
         })
         .finally(() => setArePollinationsModelsLoading(false));
     } else {
@@ -104,7 +104,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
 
   return (
     <form onSubmit={handleSubmit} className="story-input-form-container">
-      {/* Story Textarea - Unchanged */}
+      {/* Story Textarea */}
       <div className="form-group">
         <label htmlFor="story" className="form-label">Your Story:</label>
         <textarea
@@ -125,60 +125,56 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
       </div>
 
       {/* CHARACTER REFERENCE SECTION */}
-      {generationService === GenerationService.GEMINI && (
-        <div className="form-group character-reference-section">
-          <label className="form-label" style={{ paddingLeft: 0, fontSize: '1rem', marginBottom: '1rem' }}>
-            Character References (Optional, Gemini Only)
-          </label>
-          <p className="input-description" style={{ paddingLeft: 0, marginTop: '-0.75rem', marginBottom: '1rem' }}>
-            Add up to {MAX_CHARACTERS} character images for better consistency.
-            If using '{AVAILABLE_GEMINI_IMAGE_MODELS[1].label}', images are sent directly to the image model.
-            For other models, a text description is generated from the image first.
-          </p>
-          <div className="character-inputs-container">
-            {characters.map((char, index) => (
-              <div key={char.id} className="character-input-group">
-                <div className="character-image-preview">
-                  {char.imageDataUrl ? (
-                    <img src={char.imageDataUrl} alt={`Preview for ${char.name || 'character'}`} />
-                  ) : (
-                    <div className="character-image-placeholder">
-                      <span className="material-icons-outlined">add_photo_alternate</span>
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    className="character-image-input"
-                    onChange={(e) => handleCharacterImageChange(char.id, e)}
-                    aria-label={`Upload image for character ${index + 1}`}
-                  />
-                </div>
-                <div className="character-details">
-                  <input
-                    type="text"
-                    value={char.name}
-                    onChange={(e) => handleCharacterNameChange(char.id, e.target.value)}
-                    placeholder={`Character ${index + 1} Name`}
-                    className="form-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCharacter(char.id)}
-                    className="btn-remove-char"
-                    aria-label={`Remove character ${index + 1}`}
-                  >
-                    <span className="material-icons-outlined">delete</span>
-                  </button>
-                </div>
+      <div className="form-group character-reference-section">
+        <label className="form-label" style={{ paddingLeft: 0, fontSize: '1rem', marginBottom: '1rem' }}>
+          Character References (Optional)
+        </label>
+        <p className="input-description" style={{ paddingLeft: 0, marginTop: '-0.75rem', marginBottom: '1rem' }}>
+          Add character images for better consistency. If the selected Text Model supports vision (e.g., GPT-4V, Gemini), it will use them directly.
+        </p>
+        <div className="character-inputs-container">
+          {characters.map((char, index) => (
+            <div key={char.id} className="character-input-group">
+              <div className="character-image-preview">
+                {char.imageDataUrl ? (
+                  <img src={char.imageDataUrl} alt={`Preview for ${char.name || 'character'}`} />
+                ) : (
+                  <div className="character-image-placeholder">
+                    <span className="material-icons-outlined">add_photo_alternate</span>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  className="character-image-input"
+                  onChange={(e) => handleCharacterImageChange(char.id, e)}
+                  aria-label={`Upload image for character ${index + 1}`}
+                />
               </div>
-            ))}
-          </div>
-          {characters.length < MAX_CHARACTERS && ( <button type="button" onClick={handleAddCharacter} className="btn btn-tertiary" style={{marginTop: '1rem'}}> <span className="material-icons-outlined">add</span> Add Character </button> )}
+              <div className="character-details">
+                <input
+                  type="text"
+                  value={char.name}
+                  onChange={(e) => handleCharacterNameChange(char.id, e.target.value)}
+                  placeholder={`Character ${index + 1} Name`}
+                  className="form-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveCharacter(char.id)}
+                  className="btn-remove-char"
+                  aria-label={`Remove character ${index + 1}`}
+                >
+                  <span className="material-icons-outlined">delete</span>
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      )}
+        {characters.length < MAX_CHARACTERS && ( <button type="button" onClick={handleAddCharacter} className="btn btn-tertiary" style={{marginTop: '1rem'}}> <span className="material-icons-outlined">add</span> Add Character </button> )}
+      </div>
 
-      {/* Style and Era Grid - Unchanged */}
+      {/* Style and Era Grid */}
       <div className="form-group-grid">
         <div className="form-group">
           <label htmlFor="style" className="form-label">Comic Style:</label>
@@ -198,7 +194,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
       
-      {/* Aspect Ratio and Num Pages Grid - Unchanged */}
+      {/* Aspect Ratio and Num Pages Grid */}
       <div className="form-group-grid">
         <div className="form-group">
           <label htmlFor="aspectRatio" className="form-label">Image Aspect Ratio:</label>
@@ -254,7 +250,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         </div>
       </div>
       
-      {/* Captions Section - Unchanged */}
+      {/* Captions Section */}
       <div className="form-group">
         <div className="checkbox-group" style={{marginBottom: '0.5rem'}}>
           <input
@@ -292,10 +288,9 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
           Please enter your Gemini API Key to enable comic creation with Gemini.
         </p>
       )}
-      {/* Progress Bar - Unchanged */}
+      {/* Progress Bar */}
       {isLoading && currentProgress && (
         <div className="form-progress-container">
-          {/* ... progress bar jsx ... */}
         </div>
       )}
     </form>
