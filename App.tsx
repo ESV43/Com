@@ -80,7 +80,8 @@ const App: React.FC = () => {
           if (options.generationService === GenerationService.GEMINI) {
             imageUrl = await generateImageForPrompt(
               apiKey, panel.image_prompt, options.aspectRatio,
-              options.imageModel, options.style, options.era
+              options.imageModel, options.style, options.era,
+              options.characterReferences
             );
           } else {
             imageUrl = await generateImageForPromptWithPollinations(
