@@ -49,6 +49,11 @@ export interface CharacterReference {
   file: File | null;
 }
 
+export interface CharacterDescription {
+  name: string;
+  description: string;
+}
+
 export interface ComicPanelData {
   scene_number: number;
   image_prompt: string;
@@ -99,7 +104,7 @@ export interface PollinationsSceneOutput {
 // --- Unchanged Gemini-specific types below ---
 export interface GroundingChunk {
   web?: { uri: string; title: string; };
-  retrievedContext?: { uri: string; title: string; };
+  retrievedContext?: { uri:string; title: string; };
 }
 export interface GroundingMetadata {
   groundingChunks?: GroundingChunk[];
