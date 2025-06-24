@@ -36,8 +36,22 @@ const App: React.FC = () => {
       setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 0 });
 
       let scenePrompts: ComicPanelData[] = [];
+      let characterCanon: Record<string, any> | undefined = undefined;
       if (options.generationService === GenerationService.GEMINI) {
-        scenePrompts = await generateScenePrompts(apiKey, options);
+        // The Gemini scene prompt generator may return a { characterCanon, scenes } object
+        const scenePromptResult = await generateScenePrompts(apiKey, options);
+        // Type guard for LLMSceneResponse
+        function isLLMSceneResponse(obj: any): obj is { scenes: ComicPanelData[]; characterCanon: Record<string, any> } {
+          return obj && Array.isArray(obj.scenes) && typeof obj.characterCanon === 'object';
+        }
+        if (Array.isArray(scenePromptResult)) {
+          scenePrompts = scenePromptResult;
+        } else if (isLLMSceneResponse(scenePromptResult)) {
+          scenePrompts = scenePromptResult.scenes;
+          characterCanon = scenePromptResult.characterCanon;
+        } else {
+          scenePrompts = [];
+        }
       } else {
         scenePrompts = await generateScenePromptsWithPollinations(options);
       }
@@ -76,25 +90,40 @@ const App: React.FC = () => {
         try {
           let imageUrl: string;
           if (options.generationService === GenerationService.GEMINI) {
+            // Try to extract character names from the prompt or panel (if available)
+            let sceneCharacterNames: string[] = [];
+            if (characterCanon && panel.image_prompt) {
+              // Naive extraction: look for character names in the prompt that match canon keys
+              sceneCharacterNames = Object.keys(characterCanon).filter(name =>
+                panel.image_prompt.toLowerCase().includes(name.toLowerCase())
+              );
+            }
             imageUrl = await generateImageForPrompt(
-              apiKey, panel.image_prompt, options.aspectRatio,
-              options.imageModel, options.style, options.era
+              apiKey,
+              panel.image_prompt,
+              options.aspectRatio,
+              options.imageModel,
+              options.style,
+              options.era,
+              characterCanon,
+              sceneCharacterNames,
+              options.characterReferences
             );
           } else {
             imageUrl = await generateImageForPromptWithPollinations(
               panel.image_prompt, options.imageModel, options.aspectRatio
             );
           }
-          setComicPanels(prevPanels =>
-            prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl } : p)
+          setComicPanels((prevPanels: ComicPanelData[]) =>
+            prevPanels.map((p: ComicPanelData) => p.scene_number === panel.scene_number ? { ...p, imageUrl } : p)
           );
         } catch (imgError) {
           console.error(`Error generating image for panel ${panel.scene_number}:`, imgError);
-          setComicPanels(prevPanels =>
-            prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p)
+          setComicPanels((prevPanels: ComicPanelData[]) =>
+            prevPanels.map((p: ComicPanelData) => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p)
           );
           // Accumulate errors for display
-          setError(prevError => {
+          setError((prevError: string | null) => {
             const imgErrMessage = imgError instanceof Error ? imgError.message : "Unknown image error";
             const panelErrMessage = `Error on panel ${panel.scene_number}: ${imgErrMessage}`;
             return prevError ? `${prevError}\n${panelErrMessage}` : panelErrMessage;
@@ -176,7 +205,7 @@ const App: React.FC = () => {
             if (panel.dialogues && panel.dialogues.length > 0) {
               pdf.setFontSize(10);
               pdf.setTextColor(50);
-              panel.dialogues.forEach(dialogue => {
+              panel.dialogues.forEach((dialogue: string) => {
                 if (currentTextY > A4_HEIGHT_MM - MARGIN_MM - 10) {
                     pdf.addPage();
                     currentTextY = MARGIN_MM;
