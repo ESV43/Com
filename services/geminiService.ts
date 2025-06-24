@@ -210,10 +210,30 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
   }
 };
 
-export const generateImageForPrompt = async (apiKey: string, initialImagePrompt: string, inputAspectRatio: AspectRatio, imageModelName: string, style: ComicStyle | string, era: ComicEra | string): Promise<string> => {
+export const generateImageForPrompt = async (
+  apiKey: string,
+  initialImagePrompt: string,
+  inputAspectRatio: AspectRatio,
+  imageModelName: string,
+  style: ComicStyle | string,
+  era: ComicEra | string,
+  characterCanon?: Record<string, CharacterSheetDetails>,
+  sceneCharacterNames?: string[],
+  characterReferences?: { name: string; imageDataUrl: string }[],
+) : Promise<string> => {
   if (!apiKey) throw new Error("API Key is required.");
   const ai = new GoogleGenAI({ apiKey });
-  const augmentedPrompt = `${initialImagePrompt}, in the style of ${style}, ${era}`;
+  let augmentedPrompt = `${initialImagePrompt}, in the style of ${style}, ${era}`;
+
+  if (characterCanon && sceneCharacterNames && sceneCharacterNames.length > 0) {
+    const descs = sceneCharacterNames
+      .map(name => characterCanon[name]?.appearance || characterCanon[name]?.IVAP || "")
+      .filter(Boolean)
+      .join("\n");
+    if (descs) {
+      augmentedPrompt = `${descs}\n${augmentedPrompt}`;
+    }
+  }
 
   if (imageModelName.startsWith('imagen')) {
     const apiAspectRatioValue = inputAspectRatio === 'PORTRAIT' ? '9:16' : inputAspectRatio === 'LANDSCAPE' ? '16:9' : '1:1';
@@ -228,22 +248,48 @@ export const generateImageForPrompt = async (apiKey: string, initialImagePrompt:
     }
   }
 
+  if (imageModelName === 'gemini-2.0-flash-preview-image-generation' && characterReferences && sceneCharacterNames) {
+    const relevantRefs = characterReferences.filter(ref => sceneCharacterNames.includes(ref.name));
+    const parts: Part[] = [];
+    relevantRefs.forEach(ref => {
+      parts.push(dataUrlToGenerativePart(ref.imageDataUrl));
+      parts.push({ text: `This is the character named: ${ref.name}` });
+    });
+    parts.push({ text: augmentedPrompt });
+    const aspectRatioHint = `Render in ${inputAspectRatio.toLowerCase()} aspect ratio.`;
+    parts.push({ text: aspectRatioHint });
+    try {
+      const result = await ai.models.generateContent({
+        model: imageModelName,
+        contents: [{ role: 'USER', parts }],
+        config: { responseModalities: [Modality.IMAGE] }
+      });
+      const imagePart = result.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData);
+      if (imagePart?.inlineData) {
+        return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+      }
+      throw new Error("The Gemini API did not return a valid image in its response.");
+    } catch (error) {
+      throw new Error(`Gemini image generation failed: ${error instanceof Error ? error.message : "Prompt may have been blocked."}`);
+    }
+  }
+
   if (imageModelName.startsWith('gemini')) {
     const aspectRatioHint = `Render in ${inputAspectRatio.toLowerCase()} aspect ratio.`;
     const finalPrompt = `${augmentedPrompt}. ${aspectRatioHint}`;
     try {
-        const result = await ai.models.generateContent({
-            model: imageModelName,
-            contents: [{ role: 'USER', parts: [{ text: finalPrompt }] }],
-            config: { responseModalities: [Modality.IMAGE] }
-        });
-        const imagePart = result.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
-        if (imagePart?.inlineData) {
-            return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-        }
-        throw new Error("The Gemini API did not return a valid image in its response.");
+      const result = await ai.models.generateContent({
+        model: imageModelName,
+        contents: [{ role: 'USER', parts: [{ text: finalPrompt }] }],
+        config: { responseModalities: [Modality.IMAGE] }
+      });
+      const imagePart = result.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData);
+      if (imagePart?.inlineData) {
+        return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+      }
+      throw new Error("The Gemini API did not return a valid image in its response.");
     } catch (error) {
-        throw new Error(`Gemini image generation failed: ${error instanceof Error ? error.message : "Prompt may have been blocked."}`);
+      throw new Error(`Gemini image generation failed: ${error instanceof Error ? error.message : "Prompt may have been blocked."}`);
     }
   }
 
