@@ -230,12 +230,12 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
   let captionDialogueInstruction = '';
   if (includeCaptions) {
     if (captionPlacement === CaptionPlacement.IN_IMAGE) {
-      captionDialogueInstruction = `...`; // Full prompt text here
+      captionDialogueInstruction = `For "caption" and "dialogues", create short, impactful text. The dialogues array should contain strings, each being a line of dialogue attributed to a character (e.g., "ALEX: Watch out!"). If you generate captions or dialogues to be embedded in the image, also include them in the JSON output.`;
     } else {
-      captionDialogueInstruction = `...`; // Full prompt text here
+      captionDialogueInstruction = `For "caption" and "dialogues", create short, impactful text. The dialogues array should contain strings, each being a line of dialogue attributed to a character (e.g., "ALEX: Watch out!"). These will be displayed in the UI below the image.`;
     }
   } else {
-    captionDialogueInstruction = `...`; // Full prompt text here
+    captionDialogueInstruction = `Do not include "caption" or "dialogues" in your output. Set them to null or an empty array.`;
   }
 
   const systemInstruction = `
@@ -287,44 +287,84 @@ export const generateImageForPrompt = async (
   initialImagePrompt: string,
   inputAspectRatio: AspectRatio,
   imageModelName: string,
-  style: ComicStyle | string, 
-  era: ComicEra | string     
+  style: ComicStyle | string,
+  era: ComicEra | string
 ): Promise<string> => {
   if (!apiKey) throw new Error("API Key is required for image generation.");
   const ai = new GoogleGenAI({ apiKey });
 
-  let apiAspectRatioValue: "1:1" | "9:16" | "16:9";
-  switch (inputAspectRatio) {
-    case AspectRatio.SQUARE: apiAspectRatioValue = "1:1"; break;
-    case AspectRatio.PORTRAIT: apiAspectRatioValue = "9:16"; break;
-    case AspectRatio.LANDSCAPE: apiAspectRatioValue = "16:9"; break;
-    default: apiAspectRatioValue = "1:1";
-  }
-
   const augmentedPrompt = `${initialImagePrompt}, in the style of ${style}, ${era}`;
 
-  try {
-      const result: SDKGenerateImagesResponse = await ai.models.generateImages({
-          model: imageModelName,
-          prompt: augmentedPrompt,
-          number_of_images: 1,
-          aspect_ratio: apiAspectRatioValue,
-          seed: FIXED_IMAGE_SEED, // Using fixed seed for consistency
-      });
+  // --- MODEL-SPECIFIC LOGIC ---
+  // Use the 'generateImages' method for Imagen models
+  if (imageModelName.startsWith('imagen')) {
+    let apiAspectRatioValue: "1:1" | "9:16" | "16:9";
+    switch (inputAspectRatio) {
+      case AspectRatio.SQUARE: apiAspectRatioValue = "1:1"; break;
+      case AspectRatio.PORTRAIT: apiAspectRatioValue = "9:16"; break;
+      case AspectRatio.LANDSCAPE: apiAspectRatioValue = "16:9"; break;
+      default: apiAspectRatioValue = "1:1";
+    }
 
-      if (!result.generatedImages || result.generatedImages.length === 0) {
-          throw new Error("The API did not return any images.");
-      }
+    try {
+        const result: SDKGenerateImagesResponse = await ai.models.generateImages({
+            model: imageModelName,
+            prompt: augmentedPrompt,
+            number_of_images: 1,
+            aspect_ratio: apiAspectRatioValue,
+            seed: FIXED_IMAGE_SEED,
+        });
 
-      // In browser environment, the SDK returns a Base64 string in imageBytes
-      const imageBytes = result.generatedImages[0].image.imageBytes;
-      if (typeof imageBytes !== 'string') {
-          throw new Error("Image data is not in the expected format (base64 string).");
-      }
-
-      return `data:image/jpeg;base64,${imageBytes}`;
-  } catch (error) {
-      console.error("Error generating image with Gemini:", error);
-      throw new Error(`Gemini image generation failed. ${error instanceof Error ? error.message : ""}`);
+        if (!result.generatedImages || result.generatedImages.length === 0) {
+            throw new Error("The API did not return any images.");
+        }
+        const imageBytes = result.generatedImages[0].image.imageBytes;
+        if (typeof imageBytes !== 'string') {
+            throw new Error("Image data is not in the expected format (base64 string).");
+        }
+        return `data:image/jpeg;base64,${imageBytes}`;
+    } catch (error) {
+        console.error("Error generating image with Imagen:", error);
+        throw new Error(`Imagen image generation failed. ${error instanceof Error ? error.message : ""}`);
+    }
   }
+
+  // Use the 'generateContent' method for multimodal Gemini models
+  if (imageModelName.startsWith('gemini')) {
+    let aspectRatioHint = "Ensure the image is square (1:1 aspect ratio).";
+    switch (inputAspectRatio) {
+        case AspectRatio.PORTRAIT: aspectRatioHint = "Ensure the image is in portrait orientation (9:16 aspect ratio)."; break;
+        case AspectRatio.LANDSCAPE: aspectRatioHint = "Ensure the image is in landscape orientation (16:9 aspect ratio)."; break;
+    }
+    const finalPrompt = `${augmentedPrompt}. ${aspectRatioHint}`;
+
+    try {
+        const result: SDKGenerateContentResponse = await ai.models.generateContent({
+            model: imageModelName,
+            contents: [{ role: 'USER', parts: [{ text: finalPrompt }] }],
+        });
+
+        const response = result;
+        if (response.candidates && response.candidates.length > 0) {
+            const imagePart = response.candidates[0].content.parts.find(part => part.inlineData);
+            if (imagePart && imagePart.inlineData) {
+                const { mimeType, data } = imagePart.inlineData;
+                return `data:${mimeType};base64,${data}`;
+            }
+        }
+        
+        if (response.candidates && response.candidates[0].finishReason !== 'STOP') {
+             const reason = response.candidates[0].finishReason;
+             const safetyRatings = JSON.stringify(response.candidates[0].safetyRatings);
+             throw new Error(`Image generation stopped for reason: ${reason}. Safety Ratings: ${safetyRatings}`);
+        }
+        
+        throw new Error("The Gemini API did not return a valid image in the response.");
+    } catch (error) {
+        console.error("Error generating image with Gemini:", error);
+        throw new Error(`Gemini image generation failed. ${error instanceof Error ? error.message : "This model may not support image generation or the prompt was blocked."}`);
+    }
+  }
+
+  throw new Error(`Unsupported image model type: ${imageModelName}.`);
 };
