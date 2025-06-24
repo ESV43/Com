@@ -1,7 +1,7 @@
 /**
  * @fileoverview This file contains the core service functions for interacting with AI models.
  * It handles comic generation for both Google Gemini and Pollinations AI.
- * This version uses a multimodal approach and robust data validation.
+ * This version uses a multimodal approach and robust data validation for resilience.
  */
 
 import {
@@ -130,7 +130,7 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
           image_prompt: `${panel.image_prompt || ''}, in the style of ${style}, ${era}`,
           caption: options.includeCaptions ? panel.caption : null,
           dialogues: options.includeCaptions && Array.isArray(panel.dialogues) ? panel.dialogues : [],
-      }));
+      })).filter(Boolean);
   } catch (error) {
     console.error("All attempts to generate scenes with Pollinations failed:", error);
     return [];
@@ -190,15 +190,16 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
         throw new Error("The AI returned data in an unexpected format. The 'scenes' property is missing or not an array.");
     }
 
+    // **SAFE MAPPING & FILTERING**
     return parsedData.scenes.map((panel, index) => {
-        if (typeof panel !== 'object' || panel === null) return null; // Safety check for each panel
+        if (typeof panel !== 'object' || panel === null) return null; // Safety check
         return {
           scene_number: panel.scene_number || index + 1,
-          image_prompt: panel.image_prompt || '', // Default to empty string
+          image_prompt: panel.image_prompt || '', // Prevent crash if missing
           caption: (options.includeCaptions ? panel.caption : null) || null,
           dialogues: (options.includeCaptions && Array.isArray(panel.dialogues) ? panel.dialogues : []),
         };
-    }).filter((panel): panel is ComicPanelData => panel !== null); // Filter out invalid panels
+    }).filter((panel): panel is ComicPanelData => panel !== null); // Remove invalid panels
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
