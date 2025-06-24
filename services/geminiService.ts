@@ -138,7 +138,7 @@ export const generateScenePromptsWithPollinations = async (options: StoryInputOp
 };
 
 // --- Google Gemini Service Functions ---
-export const generateScenePrompts = async (apiKey: string, options: StoryInputOptions): Promise<ComicPanelData[]> => {
+export const generateScenePrompts = async (apiKey: string, options: StoryInputOptions): Promise<{ scenes: ComicPanelData[]; characterCanon?: Record<string, CharacterSheetDetails> }> => {
   if (!apiKey) throw new Error("API Key is required.");
   const ai = new GoogleGenAI({ apiKey });
   const { story, style, era, includeCaptions, numPages, aspectRatio, textModel, characterReferences } = options;
@@ -191,7 +191,7 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
     }
 
     // **SAFE MAPPING & FILTERING**
-    return parsedData.scenes.map((panel, index) => {
+    const scenes = parsedData.scenes.map((panel, index) => {
         if (typeof panel !== 'object' || panel === null) return null; // Safety check
         return {
           scene_number: panel.scene_number || index + 1,
@@ -200,6 +200,8 @@ export const generateScenePrompts = async (apiKey: string, options: StoryInputOp
           dialogues: (options.includeCaptions && Array.isArray(panel.dialogues) ? panel.dialogues : []),
         };
     }).filter((panel): panel is ComicPanelData => panel !== null); // Remove invalid panels
+
+    return { scenes, characterCanon: parsedData.characterCanon };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
