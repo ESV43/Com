@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, ChangeEvent, FormEvent } from 'react';
 import { StoryInputOptions, ComicStyle, ComicEra, AspectRatio, GenerationProgress, CaptionPlacement, GenerationService, CharacterReference } from '../types';
 import {
   AVAILABLE_STYLES,
@@ -26,7 +26,7 @@ interface StoryInputFormProps {
   currentProgress?: GenerationProgress;
 }
 
-const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, isApiKeyProvided, currentProgress }) => {
+const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, isApiKeyProvided, currentProgress }: StoryInputFormProps) => {
   const [story, setStory] = useState('');
   const [style, setStyle] = useState<ComicStyle>(AVAILABLE_STYLES[0].value);
   const [era, setEra] = useState<ComicEra>(AVAILABLE_ERAS[0].value);
@@ -61,25 +61,25 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
 
   const handleAddCharacter = useCallback(() => {
     if (characterReferences.length < MAX_CHARACTERS) {
-      setCharacterReferences(prev => [...prev, { id: Date.now(), name: '', imageDataUrl: '' }]);
+      setCharacterReferences((prev: CharacterReference[]) => [...prev, { id: Date.now(), name: '', imageDataUrl: '' }]);
     }
   }, [characterReferences.length]);
 
   const handleRemoveCharacter = useCallback((id: number) => {
-    setCharacterReferences(prev => prev.filter(char => char.id !== id));
+    setCharacterReferences((prev: CharacterReference[]) => prev.filter((char: CharacterReference) => char.id !== id));
   }, []);
 
   const handleCharacterNameChange = useCallback((id: number, name: string) => {
-    setCharacterReferences(prev => prev.map(char => char.id === id ? { ...char, name } : char));
+    setCharacterReferences((prev: CharacterReference[]) => prev.map((char: CharacterReference) => char.id === id ? { ...char, name } : char));
   }, []);
 
-  const handleCharacterImageChange = useCallback((id: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCharacterImageChange = useCallback((id: number, e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setCharacterReferences(prev =>
-          prev.map(char =>
+        setCharacterReferences((prev: CharacterReference[]) =>
+          prev.map((char: CharacterReference) =>
             char.id === id ? { ...char, imageDataUrl: reader.result as string } : char
           )
         );
@@ -92,7 +92,7 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
     }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (generationService === GenerationService.GEMINI && !isApiKeyProvided) {
       alert("Please enter your Gemini API Key above to use the Gemini service.");
@@ -100,6 +100,10 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
     }
     if (!story.trim()) {
       alert("Please enter a story.");
+      return;
+    }
+    if (characterReferences.length < 5) {
+      alert("Please add at least 5 character references (name and image).");
       return;
     }
     onSubmit({ story, style, era, aspectRatio, includeCaptions, numPages, imageModel, textModel, captionPlacement, generationService, characterReferences });
@@ -230,53 +234,46 @@ const StoryInputForm: React.FC<StoryInputFormProps> = ({ onSubmit, isLoading, is
         )}
       </div>
 
-      {/* CHARACTER CONSISTENCY */}
-      <div className="form-group character-reference-section">
-        <h3 className="type-title-medium">Character Consistency (Optional)</h3>
-        <p className="input-description" style={{paddingLeft: 0, marginBottom: '1rem'}}>
-          Add up to {MAX_CHARACTERS} characters to maintain their appearance across panels. Character names will be used to generate consistent faces and attire.
-        </p>
-        <div className="character-list">
-          {characterReferences.map((char, index) => (
-            <div key={char.id} className="character-item">
-               <div className="character-inputs">
-                <input
-                  type="text"
-                  placeholder={`Character ${index + 1} Name`}
-                  value={char.name}
-                  onChange={(e) => handleCharacterNameChange(char.id, e.target.value)}
-                  className="form-input"
-                  aria-label="Character Name"
-                  />
-                <div className="character-image-upload">
-                    <label htmlFor={`char-img-${char.id}`} className="btn-file-label">
-                        <span className="material-icons-outlined">upload_file</span>
-                        {char.imageDataUrl ? 'Change Image' : 'Upload Image'}
-                    </label>
-                    <input
-                        id={`char-img-${char.id}`}
-                        type="file"
-                        accept="image/png, image/jpeg, image/webp"
-                        onChange={(e) => handleCharacterImageChange(char.id, e)}
-                        className="file-input-hidden"
-                        />
-                    {char.imageDataUrl && <img src={char.imageDataUrl} alt={`Preview ${char.name}`} className="character-preview-img" />}
-                </div>
-              </div>
-               <button type="button" onClick={() => handleRemoveCharacter(char.id)} className="btn-icon-remove" aria-label="Remove Character">
-                    <span className="material-icons-outlined">delete</span>
-                </button>
+      {/* Character Reference Upload Section */}
+      <div className="form-group">
+        <label className="form-label">Character References (at least 5):</label>
+        <div className="character-references-list">
+          {characterReferences.map((char, idx) => (
+            <div key={char.id} className="character-reference-item">
+              <input
+                type="text"
+                placeholder={`Character Name #${idx + 1}`}
+                value={char.name}
+                onChange={e => handleCharacterNameChange(char.id, e.target.value)}
+                className="form-input"
+                required
+                minLength={2}
+                maxLength={40}
+                style={{ marginRight: '0.5rem', width: '40%' }}
+              />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={e => handleCharacterImageChange(char.id, e)}
+                className="form-input"
+                style={{ width: '40%' }}
+              />
+              {char.imageDataUrl && (
+                <img src={char.imageDataUrl} alt="Preview" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, marginLeft: 8 }} />
+              )}
+              <button type="button" onClick={() => handleRemoveCharacter(char.id)} disabled={characterReferences.length <= 5} style={{ marginLeft: 8 }}>
+                Remove
+              </button>
             </div>
           ))}
         </div>
-        {characterReferences.length < MAX_CHARACTERS && (
-          <button type="button" onClick={handleAddCharacter} className="btn-add-character">
-             <span className="material-icons-outlined">add</span>
-            Add Character Reference
-          </button>
+        <button type="button" onClick={handleAddCharacter} disabled={characterReferences.length >= MAX_CHARACTERS} style={{ marginTop: 8 }}>
+          Add Character
+        </button>
+        {characterReferences.length < 5 && (
+          <p style={{ color: 'red', marginTop: 4 }}>Please add at least 5 character references.</p>
         )}
       </div>
-
 
       <button
         type="submit" disabled={isSubmitDisabled}
