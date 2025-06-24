@@ -342,6 +342,10 @@ export const generateImageForPrompt = async (
         const result: SDKGenerateContentResponse = await ai.models.generateContent({
             model: imageModelName,
             contents: [{ role: 'USER', parts: [{ text: finalPrompt }] }],
+            // THIS CONFIGURATION IS THE FIX, based on the example project
+            config: {
+                responseModalities: [Modality.TEXT, Modality.IMAGE],
+            }
         });
 
         const response = result;
