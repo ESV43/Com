@@ -51,6 +51,13 @@ export interface ComicPanelData {
   scene_description_for_prompt?: string; // Internal helper for Gemini
 }
 
+// Interface for the new character reference feature
+export interface CharacterReference {
+  id: number; // Unique ID for React key prop
+  name: string;
+  imageDataUrl: string; // Will store the base64 data URL of the uploaded image
+}
+
 // Updated to include the generation service and use string for models
 export interface StoryInputOptions {
   story: string;
@@ -63,6 +70,7 @@ export interface StoryInputOptions {
   textModel: string;  // Generic string to support both services
   captionPlacement: CaptionPlacement;
   generationService: GenerationService; // Added
+  characterReferences: CharacterReference[];
 }
 
 export interface GenerationProgress {
