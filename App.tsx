@@ -32,21 +32,18 @@ const App: React.FC = () => {
     setCurrentAspectRatio(options.aspectRatio);
     setProgress(undefined);
 
-    let scenePrompts: ComicPanelData[] = [];
-
     try {
       setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 0 });
 
+      let scenePrompts: ComicPanelData[] = [];
       if (options.generationService === GenerationService.GEMINI) {
         scenePrompts = await generateScenePrompts(apiKey, options);
       } else {
         scenePrompts = await generateScenePromptsWithPollinations(options);
       }
 
-      // **FALLBACK LOGIC**
       if (!scenePrompts || scenePrompts.length === 0) {
         setError("Warning: The AI could not break the story into scenes. Generating a single image from the full story text instead.");
-        
         scenePrompts = [{
             scene_number: 1,
             image_prompt: `${options.story}, in the style of ${options.style}, ${options.era}`,
@@ -103,15 +100,15 @@ const App: React.FC = () => {
         }
       }
       setProgress({ currentStep: "Comic generation complete!", percentage: 100, totalPanels: totalPanels, currentPanel: totalPanels });
+      setTimeout(() => setIsLoading(false), 2000);
 
     } catch (err) {
       console.error("Comic generation failed:", err);
-      let errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(errorMessage);
       setComicPanels([]);
       setProgress(undefined);
-    } finally {
-      setTimeout(() => setIsLoading(false), 2000);
+      setIsLoading(false); // Stop loading immediately on error
     }
   }, [apiKey]);
 
@@ -255,7 +252,10 @@ const App: React.FC = () => {
         {error && (
           <div className="error-message-container">
             <h3 className="type-title-medium">Operation Status</h3>
-            {error.split('\n').map((errMsg, index) => <p key={index}>{errMsg}</p>)}
+            {typeof error === 'string'
+              ? error.split('\n').map((errMsg, index) => <p key={index}>{errMsg}</p>)
+              : <p>{String(error)}</p>
+            }
             <button onClick={() => setError(null)} className="btn error-dismiss-btn" aria-label="Dismiss message">
               Dismiss
             </button>
