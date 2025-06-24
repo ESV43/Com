@@ -42,18 +42,6 @@ export enum CaptionPlacement {
   IN_IMAGE = "Embedded in Image"
 }
 
-export interface CharacterReference {
-  id: string; // for react keys
-  name: string;
-  imageDataUrl: string | null;
-  file: File | null;
-}
-
-export interface CharacterDescription {
-  name: string;
-  description: string;
-}
-
 export interface ComicPanelData {
   scene_number: number;
   image_prompt: string;
@@ -75,7 +63,6 @@ export interface StoryInputOptions {
   textModel: string;  // Generic string to support both services
   captionPlacement: CaptionPlacement;
   generationService: GenerationService; // Added
-  characterReferences: CharacterReference[];
 }
 
 export interface GenerationProgress {
@@ -104,7 +91,7 @@ export interface PollinationsSceneOutput {
 // --- Unchanged Gemini-specific types below ---
 export interface GroundingChunk {
   web?: { uri: string; title: string; };
-  retrievedContext?: { uri:string; title: string; };
+  retrievedContext?: { uri: string; title: string; };
 }
 export interface GroundingMetadata {
   groundingChunks?: GroundingChunk[];

@@ -1,8 +1,8 @@
+
 import { ComicStyle, ComicEra, AspectRatio, GenerationService, CaptionPlacement } from './types';
 
 export const MAX_COMIC_PAGES = 200;
 export const DEFAULT_NUM_PAGES = 6;
-export const MAX_CHARACTERS = 5;
 export const FIXED_IMAGE_SEED = 42;
 
 export const AVAILABLE_SERVICES: { value: GenerationService; label: string }[] = [
@@ -30,15 +30,16 @@ export const AVAILABLE_ASPECT_RATIOS: { value: AspectRatio; label: string }[] = 
   { value: AspectRatio.LANDSCAPE, label: "Landscape (16:9)" },
 ];
 
-// CORRECTED: Removed the faulty model and simplified to a single, stable option.
 export const AVAILABLE_GEMINI_IMAGE_MODELS: { value: string; label: string }[] = [
-  { value: "imagen-3.0-generate-002", label: "Imagen 3 (Recommended)" },
+  { value: "imagen-3.0-generate-002", label: "Imagen 3 (Quality Focus)" },
+  { value: "gemini-2.0-flash-preview-image-generation", label: "Gemini 2.0 Flash Image (Speed Focus)" },
 ];
 
 export const AVAILABLE_GEMINI_TEXT_MODELS: { value: string; label: string }[] = [
-  { value: "gemini-pro-vision", label: "Gemini Pro Vision (For Characters)" },
-  { value: "gemini-1.5-flash-latest", label: "Gemini 1.5 Flash (Default)" },
-  { value: "gemini-1.0-pro", label: "Gemini 1.0 Pro" },
+  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Default)" },
+  { value: "gemini-2.5-flash-lite-preview-06-17", label: "Gemini 2.5 Flash Lite" },
+  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
 ];
 
 export const AVAILABLE_CAPTION_PLACEMENTS: { value: CaptionPlacement; label: string }[] = [
@@ -47,9 +48,8 @@ export const AVAILABLE_CAPTION_PLACEMENTS: { value: CaptionPlacement; label: str
 ];
 
 // Default models
-export const DEFAULT_TEXT_MODEL = "gemini-1.5-flash-latest";
-// CORRECTED: Updated the default to the valid model.
-export const DEFAULT_GEMINI_IMAGE_MODEL = "imagen-3.0-generate-002";
+export const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_IMAGE_MODEL = "gemini-2.0-flash-preview-image-generation";
 export const DEFAULT_POLLINATIONS_IMAGE_MODEL = "flux";
 export const DEFAULT_POLLINATIONS_TEXT_MODEL = "llamascout";
 export const DEFAULT_CAPTION_PLACEMENT = CaptionPlacement.IN_UI;

@@ -3,13 +3,12 @@ import jsPDF from 'jspdf';
 import StoryInputForm from './components/StoryInputForm';
 import ComicDisplay from './components/ComicDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
-import { StoryInputOptions, ComicPanelData, GenerationProgress, AspectRatio, GenerationService, CharacterDescription } from './types';
+import { StoryInputOptions, ComicPanelData, GenerationProgress, AspectRatio, GenerationService } from './types';
 import {
   generateScenePrompts,
   generateImageForPrompt,
   generateScenePromptsWithPollinations,
-  generateImageForPromptWithPollinations,
-  generateCharacterDescriptions
+  generateImageForPromptWithPollinations
 } from './services/geminiService';
 import { AVAILABLE_ASPECT_RATIOS } from './constants';
 
@@ -23,12 +22,10 @@ const App: React.FC = () => {
   const [currentAspectRatio, setCurrentAspectRatio] = useState<AspectRatio>(AVAILABLE_ASPECT_RATIOS[0].value);
 
   const handleComicGeneration = useCallback(async (options: StoryInputOptions) => {
-    // API Key checks
-    if ((options.generationService === GenerationService.GEMINI || options.characterReferences.length > 0) && !apiKey.trim()) {
-      setError("A Gemini API Key is required to use the Gemini service or the Character Reference feature.");
+    if (options.generationService === GenerationService.GEMINI && !apiKey.trim()) {
+      setError("Please enter your Gemini API Key to generate comics with the Gemini service.");
       return;
     }
-
     setIsLoading(true);
     setError(null);
     setComicPanels([]);
@@ -36,30 +33,20 @@ const App: React.FC = () => {
     setProgress(undefined);
 
     let scenePrompts: ComicPanelData[] = [];
-    let characterDescriptions: CharacterDescription[] = [];
-    
-    try {
-      // Step 1: Pre-process characters if references are provided. This is always done with Gemini.
-      if (options.characterReferences.length > 0) {
-        setProgress({ currentStep: "Analyzing character references...", percentage: 5 });
-        // Use a dedicated vision model for this analysis task
-        characterDescriptions = await generateCharacterDescriptions(apiKey, options.characterReferences, "gemini-pro-vision");
-      }
 
-      // Step 2: Generate Scene Prompts
-      setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 10 });
+    try {
+      setProgress({ currentStep: "Analyzing story & generating scene prompts...", percentage: 0 });
 
       if (options.generationService === GenerationService.GEMINI) {
-        // Pass the raw references; the service will handle them internally
         scenePrompts = await generateScenePrompts(apiKey, options);
       } else {
-        // Pass the pre-processed text descriptions to Pollinations
-        scenePrompts = await generateScenePromptsWithPollinations(options, characterDescriptions);
+        scenePrompts = await generateScenePromptsWithPollinations(options);
       }
 
       // **FALLBACK LOGIC**
       if (!scenePrompts || scenePrompts.length === 0) {
         setError("Warning: The AI could not break the story into scenes. Generating a single image from the full story text instead.");
+        
         scenePrompts = [{
             scene_number: 1,
             image_prompt: `${options.story}, in the style of ${options.style}, ${options.era}`,
@@ -74,13 +61,12 @@ const App: React.FC = () => {
       const totalPanels = scenePrompts.length;
       setProgress({
         currentStep: `Generated ${totalPanels} prompts. Starting image generation...`,
-        percentage: 25,
+        percentage: 10,
         totalPanels: totalPanels
       });
 
-      // Step 3: Generate Images
       for (let i = 0; i < totalPanels; i++) {
-        const panelProgressPercentage = 25 + ((i + 1) / totalPanels) * 75;
+        const panelProgressPercentage = 10 + ((i + 1) / totalPanels) * 90;
         setProgress({
           currentStep: `Generating image for panel ${i + 1}...`,
           percentage: panelProgressPercentage,
@@ -128,12 +114,116 @@ const App: React.FC = () => {
       setTimeout(() => setIsLoading(false), 2000);
     }
   }, [apiKey]);
-  
-  // PDF Download and component render are unchanged.
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (comicPanels.length === 0 || isLoading) return;
+
+    setIsDownloadingPdf(true);
+
+    try {
+      const isLandscape = currentAspectRatio === AspectRatio.LANDSCAPE;
+      const pdf = new jsPDF({
+        orientation: isLandscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const A4_WIDTH_MM = isLandscape ? 297 : 210;
+      const A4_HEIGHT_MM = isLandscape ? 210 : 297;
+      const MARGIN_MM = 10;
+      const MAX_IMG_WIDTH = A4_WIDTH_MM - 2 * MARGIN_MM;
+      const MAX_IMG_HEIGHT_AREA = A4_HEIGHT_MM * 0.65 - MARGIN_MM;
+      const TEXT_START_Y_OFFSET = 10;
+
+      for (let i = 0; i < comicPanels.length; i++) {
+        const panel = comicPanels[i];
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        pdf.setFontSize(10);
+        pdf.setTextColor(100);
+
+        pdf.text(`Panel ${panel.scene_number}`, MARGIN_MM, MARGIN_MM + 5);
+
+        if (panel.imageUrl && panel.imageUrl !== 'error') {
+          try {
+            const img = new Image();
+            img.src = panel.imageUrl;
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error('Image failed to load for PDF generation.'));
+            });
+
+            let imgWidth = img.width;
+            let imgHeight = img.height;
+            const aspectRatioVal = imgWidth / imgHeight;
+
+            let pdfImgWidth = MAX_IMG_WIDTH;
+            let pdfImgHeight = pdfImgWidth / aspectRatioVal;
+
+            if (pdfImgHeight > MAX_IMG_HEIGHT_AREA) {
+              pdfImgHeight = MAX_IMG_HEIGHT_AREA;
+              pdfImgWidth = pdfImgHeight * aspectRatioVal;
+            }
+
+            const imgX = (A4_WIDTH_MM - pdfImgWidth) / 2;
+            const imgY = MARGIN_MM + 10;
+
+            pdf.addImage(panel.imageUrl, 'JPEG', imgX, imgY, pdfImgWidth, pdfImgHeight);
+
+            let currentTextY = imgY + pdfImgHeight + TEXT_START_Y_OFFSET;
+
+            if (panel.caption) {
+              pdf.setFontSize(12);
+              pdf.setTextColor(0);
+              const captionLines = pdf.splitTextToSize(`Caption: ${panel.caption}`, MAX_IMG_WIDTH);
+              pdf.text(captionLines, MARGIN_MM, currentTextY);
+              currentTextY += (captionLines.length * 5) + 5;
+            }
+
+            if (panel.dialogues && panel.dialogues.length > 0) {
+              pdf.setFontSize(10);
+              pdf.setTextColor(50);
+              panel.dialogues.forEach(dialogue => {
+                if (currentTextY > A4_HEIGHT_MM - MARGIN_MM - 10) {
+                    pdf.addPage();
+                    currentTextY = MARGIN_MM;
+                     pdf.text(`Panel ${panel.scene_number} (cont.)`, MARGIN_MM, currentTextY);
+                     currentTextY +=10;
+                }
+                const dialogueLines = pdf.splitTextToSize(dialogue, MAX_IMG_WIDTH);
+                pdf.text(dialogueLines, MARGIN_MM, currentTextY);
+                currentTextY += (dialogueLines.length * 4) + 2;
+              });
+            }
+          } catch (e) {
+            console.error("Error processing image for PDF for panel " + panel.scene_number, e);
+            const errorTextY = MARGIN_MM + 20;
+            pdf.setTextColor(255,0,0);
+            pdf.text("Error loading image for this panel.", MARGIN_MM, errorTextY, {maxWidth: MAX_IMG_WIDTH});
+            pdf.setTextColor(0);
+          }
+        } else {
+           const errorTextY = MARGIN_MM + 20;
+          pdf.setFontSize(12);
+          pdf.setTextColor(255,0,0);
+          pdf.text(panel.imageUrl === 'error' ? "Image generation failed for this panel." : "Image not available for this panel.", MARGIN_MM, errorTextY, {maxWidth: MAX_IMG_WIDTH});
+          pdf.setTextColor(0);
+        }
+      }
+      pdf.save('ai-comic.pdf');
+    } catch (e) {
+      console.error("Failed to generate PDF:", e);
+      setError(e instanceof Error ? e.message : "An unknown error occurred while generating the PDF.");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  }, [comicPanels, isLoading, currentAspectRatio]);
 
   return (
     <div className="app-container">
-       <header className="app-header">
+      <header className="app-header">
         <h1 className="type-display-large">AI Comic Creator</h1>
         <p className="type-body-large">
           Turn your stories into stunning comic strips! Provide your narrative, choose your style, and let AI bring your vision to life.
@@ -148,12 +238,12 @@ const App: React.FC = () => {
             <label htmlFor="apiKey" className="form-label">Your Gemini API Key (Optional)</label>
             <input
               type="password" id="apiKey" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-              className="form-input" placeholder="Enter here to use Gemini models"
+              className="form-input" placeholder="Enter here to use premium Gemini models"
               aria-describedby="apiKeyHelp"
             />
           </div>
           <p id="apiKeyHelp" className="input-description">
-            Required for Gemini models and for the Character Reference feature. Pollinations models are free (without character references). Your key is not stored.
+            Required only for Gemini models. Pollinations models are free and do not need a key. Your key is not stored.
           </p>
         </section>
 

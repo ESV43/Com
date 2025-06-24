@@ -406,109 +406,6 @@ body {
   border: 1px solid var(--md-sys-color-outline-variant); /* Subtle border for definition */
 }
 
-/* Character Reference Section */
-.character-reference-section {
-  background-color: var(--md-sys-color-surface-container);
-  padding: 1.5rem;
-  border-radius: var(--md-sys-shape-corner-medium);
-  border: 1px solid var(--md-sys-color-outline-variant);
-}
-
-.character-inputs-container {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-}
-
-@media (min-width: 600px) {
-  .character-inputs-container {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  }
-}
-
-.character-input-group {
-  background-color: var(--md-sys-color-surface-container-high);
-  border-radius: var(--md-sys-shape-corner-small);
-  overflow: hidden;
-  border: 1px solid var(--md-sys-color-outline-variant);
-  display: flex;
-  flex-direction: column;
-}
-
-.character-image-preview {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background-color: var(--md-sys-color-surface-variant);
-}
-
-.character-image-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.character-image-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--md-sys-color-on-surface-variant);
-}
-
-.character-image-placeholder .material-icons-outlined {
-  font-size: 3rem;
-}
-
-.character-image-input {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.character-details {
-  padding: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background-color: var(--md-sys-color-surface-container-highest);
-}
-
-.character-details .form-input {
-  padding: 0.5rem;
-  background: var(--md-sys-color-surface-container-low);
-  border-radius: var(--md-sys-shape-corner-extra-small);
-  border: 1px solid var(--md-sys-color-outline);
-  flex-grow: 1;
-  min-width: 0;
-}
-.character-details .form-input:focus {
-  border-color: var(--md-sys-color-primary);
-}
-
-.btn-remove-char {
-  background: transparent;
-  border: none;
-  color: var(--md-sys-color-error);
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: var(--md-sys-shape-corner-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.btn-remove-char:hover {
-  background-color: var(--md-sys-color-error-container);
-  color: var(--md-sys-color-on-error-container);
-}
-
 
 /* Error Message Styling - Dark Theme */
 .error-message-container {
@@ -617,4 +514,170 @@ body {
 
 
 .panel-content {
-  padding: 1r
+  padding: 1rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.panel-caption {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-surface); /* Light text */
+  font-style: italic;
+  line-height: 1.4;
+}
+.panel-caption strong {
+  color: var(--md-sys-color-primary); /* Neon primary for "Scene X:" */
+  font-weight: 600;
+}
+.panel-dialogues {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; 
+}
+.panel-dialogue {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-on-surface); /* Light text for dialogue */
+  background-color: var(--md-sys-color-surface-container); /* Slightly different dark bg for speech bubble */
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--md-sys-shape-corner-small);
+  line-height: 1.3;
+  border-left: 3px solid var(--md-sys-color-secondary); /* Neon teal accent for dialogues */
+}
+.panel-scene-number-only {
+ padding: 1rem;
+ font-size: 0.875rem;
+ color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+ font-style: italic;
+}
+
+
+/* Loading Spinner Overlay - Dark Theme */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--md-sys-color-scrim); /* Darker scrim */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 4px solid var(--md-sys-color-surface-variant); /* Dark track */
+  border-top-color: var(--md-sys-color-primary); /* Neon primary spinner */
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 1.5rem;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-message {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--md-sys-color-on-background); /* Light text on scrim */
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 3px var(--md-sys-color-background); /* Text shadow for readability */
+}
+.loading-progress-info {
+  width: 100%;
+  max-width: 320px;
+}
+.loading-progress-step {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-background);
+  margin-bottom: 0.5rem;
+   text-shadow: 0 0 3px var(--md-sys-color-background);
+}
+.loading-progress-panel-info {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+  margin-bottom: 0.75rem;
+}
+.loading-progress-bar-container {
+  width: 100%;
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent); /* Darker primary for track */
+  border-radius: var(--md-sys-shape-corner-full);
+  height: 0.5rem;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+.loading-progress-bar {
+  background-color: var(--md-sys-color-primary); /* Neon primary bar */
+  height: 100%;
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: width 0.3s ease-in-out;
+}
+.loading-progress-percentage {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-primary); /* Neon primary for percentage */
+  font-weight: bold;
+}
+
+/* Form Progress (inline, inside form card) - Dark Theme */
+.form-progress-container {
+  margin-top: 1rem;
+  text-align: center;
+  padding: 1rem;
+  background-color: var(--md-sys-color-surface-container); /* Dark surface */
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+.form-progress-step {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-primary); /* Neon primary text */
+  font-weight: 500;
+}
+.form-progress-panel-info {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+  margin-top: 0.25rem;
+}
+.form-progress-bar-container {
+  width: 100%;
+  background-color: var(--md-sys-color-surface-variant); /* Dark track */
+  border-radius: var(--md-sys-shape-corner-full);
+  height: 0.5rem;
+  margin-top: 0.75rem;
+  overflow: hidden;
+}
+.form-progress-bar {
+  background-color: var(--md-sys-color-primary); /* Neon primary bar */
+  height: 100%;
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: width 0.15s ease-linear;
+}
+.form-progress-percentage {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-primary); /* Neon primary text */
+  margin-top: 0.25rem;
+}
+
+/* Centered Button for Download */
+.centered-action-button-container {
+  text-align: center;
+  margin: 2.5rem 0;
+}
+
+/* Footer - Dark Theme */
+.app-footer {
+  text-align: center;
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--md-sys-color-outline-variant); /* Dark subtle border */
+}
+.app-footer p {
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-surface-variant); /* Muted light text */
+}
+.app-footer .footer-fineprint {
+  font-size: 0.75rem;
+  color: var(--md-sys-color-outline); /* Medium grey for fine print */
+  margin-top: 0.25rem;
+}
