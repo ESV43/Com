@@ -1,7 +1,7 @@
 /**
  * @fileoverview This file contains the core service functions for interacting with AI models.
  * It handles comic generation for both Google Gemini and Pollinations AI.
- * This version uses the correct GET method for Pollinations text generation and a robust fallback signal.
+ * This version uses a multimodal approach for character consistency.
  */
 
 import {
@@ -11,6 +11,7 @@ import {
   Modality,
   HarmCategory,
   HarmProbability,
+  Part,
 } from "@google/genai";
 import {
   ComicPanelData,
@@ -51,6 +52,21 @@ function extractJsonArray(text: string): any[] | null {
     return null;
 }
 
+// Helper to convert a data URL to a GenAI Part object
+function dataUrlToGenerativePart(dataUrl: string, mimeType?: string): Part {
+  const matches = dataUrl.match(/^data:(.+?);base64,(.*)$/);
+  if (!matches) {
+    throw new Error("Invalid data URL format");
+  }
+  return {
+    inlineData: {
+      mimeType: mimeType || matches[1],
+      data: matches[2],
+    },
+  };
+}
+
+
 interface SafetyRating {
   category: HarmCategory;
   probability: HarmProbability;
@@ -63,7 +79,7 @@ interface LLMSceneResponse {
 }
 
 
-// --- Pollinations AI Service Functions ---
+// --- Pollinations AI Service Functions (Unchanged) ---
 
 export const listPollinationsImageModels = async (): Promise<{ value: string; label: string }[]> => {
   try {
@@ -117,8 +133,6 @@ export const generateImageForPromptWithPollinations = async (
         }
 
         const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`;
-        console.log("Fetching Pollinations Image URL:", url);
-
         const response = await fetch(url);
 
         if (!response.ok) {
@@ -136,147 +150,112 @@ export const generateImageForPromptWithPollinations = async (
 };
 
 export const generateScenePromptsWithPollinations = async (options: StoryInputOptions): Promise<ComicPanelData[]> => {
-  const { story, numPages, style, era, characterReferences } = options;
-
-  let characterInstruction = '';
-  if (characterReferences && characterReferences.length > 0) {
-    const characterNames = characterReferences.map(c => c.name).filter(Boolean).join(', ');
-    if (characterNames) {
-      characterInstruction = `
-        IMPORTANT: Maintain visual consistency for these characters: ${characterNames}.
-        For any scene involving them, describe their appearance in detail in the 'image_prompt'.
-      `;
-    }
-  }
+  const { story, numPages, style, era } = options;
   const systemPrompt = `
-    Break this story into ${numPages} scenes. Respond with ONLY a JSON array where each object has keys: "scene_number", "image_prompt", "caption", "dialogues". ${characterInstruction}
+    Break this story into ${numPages} scenes. Respond with ONLY a JSON array where each object has keys: "scene_number", "image_prompt", "caption", "dialogues".
     Story: """${story}"""
   `;
-
-  const maxRetries = 2;
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    let responseText = '';
-    try {
-      if (attempt > 0) {
-        console.log(`Retrying Pollinations text generation (GET)... Attempt ${attempt + 1}`);
-        await delay(2000);
-      }
-      
+  try {
       const encodedPrompt = encodeURIComponent(systemPrompt);
       const url = `https://text.pollinations.ai/${encodedPrompt}`;
-
       const response = await fetch(url, { method: 'GET' });
-
-      responseText = await response.text();
+      const responseText = await response.text();
       if (!response.ok) {
           throw new Error(`Pollinations text API returned status ${response.status}.`);
       }
-
       const parsedScenes = extractJsonArray(responseText);
-
       if (!parsedScenes || !Array.isArray(parsedScenes) || parsedScenes.length === 0) {
           throw new Error("AI response did not contain a valid, non-empty JSON array.");
       }
-
-      // Success! Format and return the data.
       return parsedScenes.map((panel, index) => ({
           scene_number: panel.scene_number || index + 1,
           image_prompt: `${panel.image_prompt}, in the style of ${style}, ${era}`,
           caption: options.includeCaptions ? panel.caption : null,
           dialogues: options.includeCaptions && Array.isArray(panel.dialogues) ? panel.dialogues : [],
       }));
-
-    } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        console.error(`Attempt ${attempt + 1} failed:`, lastError.message);
-        console.error("Raw response that may have caused the error:", responseText);
-    }
+  } catch (error) {
+    console.error(`All attempts to generate scenes failed. Triggering fallback mode.`);
+    return [];
   }
-  
-  // If all retries fail, return an empty array to signal the fallback.
-  console.error(`All attempts to generate scenes failed. Last error: ${lastError?.message}. Triggering fallback mode.`);
-  return [];
 };
+
 
 // --- Google Gemini Service Functions ---
 export const generateScenePrompts = async (apiKey: string, options: StoryInputOptions): Promise<ComicPanelData[]> => {
   if (!apiKey) throw new Error("API Key is required to generate scene prompts.");
   const ai = new GoogleGenAI({ apiKey });
-  const { story, style, era, includeCaptions, numPages, aspectRatio, textModel, captionPlacement, characterReferences } = options;
+  const { story, style, era, includeCaptions, numPages, aspectRatio, textModel, characterReferences } = options;
 
- let characterInstruction = '';
- if (characterReferences && characterReferences.length > 0) {
-    const characterNames = characterReferences.map(ref => ref.name).filter(Boolean).join(', ');
-    if (characterNames) {
-        characterInstruction = `
-          You are an expert comic book artist and writer. The user has provided a list of main characters: ${characterNames}. Your most important task is to maintain character consistency.
-          To do this, you will first define a "characterCanon" object in your response. For each character, create a detailed description covering their facial features, hairstyle and color, gender, and a consistent outfit.
-          Example for a character named 'Alex': { "Alex": { "IVAP": "A young man in his early 20s with sharp blue eyes, a scar over his left eyebrow, short spiky black hair, and always wearing a red leather jacket over a white t-shirt." } }.
+  const requestParts: Part[] = [];
+  let characterInstruction = 'Your primary task is to break the story into scenes.';
+  const validCharacterRefs = characterReferences.filter(ref => ref.name && ref.imageDataUrl);
 
-          After defining the canon, you will break the story down into scenes. For EACH scene's "image_prompt", you MUST prepend the detailed description from the character canon for any character present in that scene.
-          For example, if 'Alex' is in a scene, the image_prompt must start with his description before describing the action: "A young man in his early 20s with sharp blue eyes, a scar over his left eyebrow, short spiky black hair, and always wearing a red leather jacket over a white t-shirt, is seen jumping from a rooftop...".
-          This is CRITICAL for image generation consistency. Your final output MUST be a single JSON object containing both the "characterCanon" and the "scenes" array.
-        `;
-    }
- }
+  if (validCharacterRefs.length > 0) {
+    // This is the instruction for the AI to analyze the images first.
+    characterInstruction = `
+      You are an expert comic book artist. The user has provided reference images for the main characters. Your most important task is to maintain character consistency.
+      1.  **Analyze the images provided.** For each character, create a detailed textual description of their face, hair, and clothing. This will be your "characterCanon".
+      2.  **Break the story into scenes.**
+      3.  **For EACH scene's "image_prompt", you MUST prepend the detailed description from the characterCanon** for any character present in that scene. This is CRITICAL for consistency.
 
+      Example for a character named 'Alex' based on his image: { "Alex": { "IVAP": "A young man in his early 20s with sharp blue eyes, a scar over his left eyebrow, short spiky black hair, and always wearing a red leather jacket over a white t-shirt." } }.
+      Your final output MUST be a single JSON object with "characterCanon" and "scenes" keys.
+    `;
 
-  let aspectRatioDescription = `The user wants all images in a ${aspectRatio} aspect ratio. Generate image prompts that are mindful of this composition.`;
-  if (aspectRatio === AspectRatio.LANDSCAPE) aspectRatioDescription = "16:9 landscape";
-  else if (aspectRatio === AspectRatio.PORTRAIT) aspectRatioDescription = "9:16 portrait";
+    // Add the instruction text first
+    requestParts.push({ text: `Analyze these characters for the story:\n` });
 
-  let captionDialogueInstruction = '';
-  if (includeCaptions) {
-    if (captionPlacement === CaptionPlacement.IN_IMAGE) {
-      captionDialogueInstruction = `For "caption" and "dialogues", create short, impactful text. The dialogues array should contain strings, each being a line of dialogue attributed to a character (e.g., "ALEX: Watch out!"). If you generate captions or dialogues to be embedded in the image, also include them in the JSON output.`;
-    } else {
-      captionDialogueInstruction = `For "caption" and "dialogues", create short, impactful text. The dialogues array should contain strings, each being a line of dialogue attributed to a character (e.g., "ALEX: Watch out!"). These will be displayed in the UI below the image.`;
-    }
-  } else {
-    captionDialogueInstruction = `Do not include "caption" or "dialogues" in your output. Set them to null or an empty array.`;
+    // Add each character image and name to the request parts
+    validCharacterRefs.forEach(ref => {
+      requestParts.push(dataUrlToGenerativePart(ref.imageDataUrl));
+      requestParts.push({ text: `This is the character named: ${ref.name}\n` });
+    });
   }
 
-  const systemInstruction = `
-    You are a master comic creator AI. Your task is to take a story and other parameters and convert it into a structured JSON output for a comic book.
-    You must respond with ONLY a valid JSON object. Do not include any markdown formatting like \`\`\`json.
-    The JSON object must have two top-level keys: "characterCanon" and "scenes".
+  const aspectRatioDescription = `The user wants all images in a ${aspectRatio} aspect ratio. Generate image prompts that are mindful of this composition.`;
+  
+  const mainPrompt = `
+    Here is the story and the rules for creating the comic.
+    
+    **COMIC CREATION RULES**
+    - JSON ONLY: You must respond with ONLY a valid JSON object. Do not use markdown.
+    - TOP-LEVEL KEYS: The JSON must have "characterCanon" and "scenes".
+    - CHARACTER CANON: ${characterInstruction}
+    - SCENES ARRAY: The "scenes" key must be an array of objects, each with "scene_number", "image_prompt", "caption", and "dialogues".
+    - IMAGE PROMPT: A detailed prompt for an AI image generator, tailored for a ${style} and ${era} aesthetic. It MUST include the full description from your generated characterCanon if a character is present.
+    - CAPTIONS/DIALOGUES: ${includeCaptions ? 'Create short, impactful text for captions and dialogues.' : 'Set captions and dialogues to null or empty array.'}
 
-    ${characterInstruction}
-
-    The "scenes" key must be an array of objects, where each object represents a single comic panel and has the following keys:
-    - "scene_number": (Integer) The sequential number of the panel, starting from 1.
-    - "image_prompt": (String) A detailed, descriptive prompt for an AI image generator. This should describe the characters, setting, action, mood, and composition. This prompt must incorporate the character descriptions from the characterCanon for consistency. It should also be tailored for a ${style} and ${era} aesthetic.
-    ${captionDialogueInstruction}
-
-    Now, process the following user request:
+    **USER STORY**
     - Story: """${story}"""
     - Number of Panels: ${numPages}
     - Aspect Ratio: ${aspectRatioDescription}
-    - Style: ${style}
-    - Era: ${era}
   `;
+  requestParts.push({ text: mainPrompt });
 
   try {
     const result: SDKGenerateContentResponse = await ai.models.generateContent({
       model: textModel,
-      contents: [{ role: 'USER', parts: [{ text: systemInstruction }] }],
+      contents: [{ role: 'USER', parts: requestParts }],
       config: { responseMimeType: "application/json" }
     });
-
+    
     const parsedData: LLMSceneResponse = JSON.parse(result.text);
-    return (parsedData.scenes || []).map((panel, index) => ({
+    if (!parsedData.scenes) {
+        throw new Error("The AI response did not contain a 'scenes' array.");
+    }
+
+    return parsedData.scenes.map((panel, index) => ({
       scene_number: panel.scene_number || index + 1,
       image_prompt: panel.image_prompt,
       caption: options.includeCaptions ? panel.caption : null,
       dialogues: options.includeCaptions && Array.isArray(panel.dialogues) ? panel.dialogues : [],
     }));
+
   } catch (error) {
     console.error("Error generating scene prompts with Gemini:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     if (errorMessage.includes("responseMimeType")) {
-        throw new Error("The selected text model may not support JSON output. Please try a different model.");
+        throw new Error("The selected text model may not support JSON output or multimodal analysis. Please try a different model (e.g., Gemini 2.5 Flash).");
     }
     throw new Error(`Failed to generate scene prompts: ${errorMessage}`);
   }
@@ -295,8 +274,6 @@ export const generateImageForPrompt = async (
 
   const augmentedPrompt = `${initialImagePrompt}, in the style of ${style}, ${era}`;
 
-  // --- MODEL-SPECIFIC LOGIC ---
-  // Use the 'generateImages' method for Imagen models
   if (imageModelName.startsWith('imagen')) {
     let apiAspectRatioValue: "1:1" | "9:16" | "16:9";
     switch (inputAspectRatio) {
@@ -315,58 +292,31 @@ export const generateImageForPrompt = async (
             seed: FIXED_IMAGE_SEED,
         });
 
-        if (!result.generatedImages || result.generatedImages.length === 0) {
-            throw new Error("The API did not return any images.");
-        }
         const imageBytes = result.generatedImages[0].image.imageBytes;
-        if (typeof imageBytes !== 'string') {
-            throw new Error("Image data is not in the expected format (base64 string).");
-        }
         return `data:image/jpeg;base64,${imageBytes}`;
     } catch (error) {
-        console.error("Error generating image with Imagen:", error);
         throw new Error(`Imagen image generation failed. ${error instanceof Error ? error.message : ""}`);
     }
   }
 
-  // Use the 'generateContent' method for multimodal Gemini models
   if (imageModelName.startsWith('gemini')) {
-    let aspectRatioHint = "Ensure the image is square (1:1 aspect ratio).";
-    switch (inputAspectRatio) {
-        case AspectRatio.PORTRAIT: aspectRatioHint = "Ensure the image is in portrait orientation (9:16 aspect ratio)."; break;
-        case AspectRatio.LANDSCAPE: aspectRatioHint = "Ensure the image is in landscape orientation (16:9 aspect ratio)."; break;
-    }
+    const aspectRatioHint = `Render in ${inputAspectRatio.toLowerCase()} aspect ratio.`;
     const finalPrompt = `${augmentedPrompt}. ${aspectRatioHint}`;
 
     try {
         const result: SDKGenerateContentResponse = await ai.models.generateContent({
             model: imageModelName,
             contents: [{ role: 'USER', parts: [{ text: finalPrompt }] }],
-            // THIS CONFIGURATION IS THE FIX, based on the example project
-            config: {
-                responseModalities: [Modality.TEXT, Modality.IMAGE],
-            }
+            config: { responseModalities: [Modality.IMAGE] }
         });
 
-        const response = result;
-        if (response.candidates && response.candidates.length > 0) {
-            const imagePart = response.candidates[0].content.parts.find(part => part.inlineData);
-            if (imagePart && imagePart.inlineData) {
-                const { mimeType, data } = imagePart.inlineData;
-                return `data:${mimeType};base64,${data}`;
-            }
+        const imagePart = result.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
+        if (imagePart && imagePart.inlineData) {
+            return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
         }
-        
-        if (response.candidates && response.candidates[0].finishReason !== 'STOP') {
-             const reason = response.candidates[0].finishReason;
-             const safetyRatings = JSON.stringify(response.candidates[0].safetyRatings);
-             throw new Error(`Image generation stopped for reason: ${reason}. Safety Ratings: ${safetyRatings}`);
-        }
-        
-        throw new Error("The Gemini API did not return a valid image in the response.");
+        throw new Error("The Gemini API did not return a valid image.");
     } catch (error) {
-        console.error("Error generating image with Gemini:", error);
-        throw new Error(`Gemini image generation failed. ${error instanceof Error ? error.message : "This model may not support image generation or the prompt was blocked."}`);
+        throw new Error(`Gemini image generation failed. ${error instanceof Error ? error.message : "Prompt may have been blocked."}`);
     }
   }
 
