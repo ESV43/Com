@@ -42,6 +42,7 @@ const App: React.FC = () => {
         scenePrompts = await generateScenePromptsWithPollinations(options);
       }
 
+      // Fallback logic if scene generation fails or returns an empty array
       if (!scenePrompts || scenePrompts.length === 0) {
         setError("Warning: The AI could not break the story into scenes. Generating a single image from the full story text instead.");
         scenePrompts = [{
@@ -92,6 +93,7 @@ const App: React.FC = () => {
           setComicPanels(prevPanels =>
             prevPanels.map(p => p.scene_number === panel.scene_number ? { ...p, imageUrl: 'error' } : p)
           );
+          // Accumulate errors for display
           setError(prevError => {
             const imgErrMessage = imgError instanceof Error ? imgError.message : "Unknown image error";
             const panelErrMessage = `Error on panel ${panel.scene_number}: ${imgErrMessage}`;
@@ -100,21 +102,22 @@ const App: React.FC = () => {
         }
       }
       setProgress({ currentStep: "Comic generation complete!", percentage: 100, totalPanels: totalPanels, currentPanel: totalPanels });
+      // On success, wait a moment before hiding the spinner to show the "complete" message
       setTimeout(() => setIsLoading(false), 2000);
 
     } catch (err) {
       console.error("Comic generation failed:", err);
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred during scene generation.";
       setError(errorMessage);
       setComicPanels([]);
       setProgress(undefined);
-      setIsLoading(false); // Stop loading immediately on error
+      // On failure, hide the spinner immediately
+      setIsLoading(false);
     }
   }, [apiKey]);
 
   const handleDownloadPdf = useCallback(async () => {
     if (comicPanels.length === 0 || isLoading) return;
-
     setIsDownloadingPdf(true);
 
     try {
@@ -134,13 +137,10 @@ const App: React.FC = () => {
 
       for (let i = 0; i < comicPanels.length; i++) {
         const panel = comicPanels[i];
-        if (i > 0) {
-          pdf.addPage();
-        }
+        if (i > 0) pdf.addPage();
 
         pdf.setFontSize(10);
         pdf.setTextColor(100);
-
         pdf.text(`Panel ${panel.scene_number}`, MARGIN_MM, MARGIN_MM + 5);
 
         if (panel.imageUrl && panel.imageUrl !== 'error') {
@@ -152,23 +152,17 @@ const App: React.FC = () => {
                 img.onerror = () => reject(new Error('Image failed to load for PDF generation.'));
             });
 
-            let imgWidth = img.width;
-            let imgHeight = img.height;
-            const aspectRatioVal = imgWidth / imgHeight;
-
+            const aspectRatioVal = img.width / img.height;
             let pdfImgWidth = MAX_IMG_WIDTH;
             let pdfImgHeight = pdfImgWidth / aspectRatioVal;
-
             if (pdfImgHeight > MAX_IMG_HEIGHT_AREA) {
               pdfImgHeight = MAX_IMG_HEIGHT_AREA;
               pdfImgWidth = pdfImgHeight * aspectRatioVal;
             }
-
             const imgX = (A4_WIDTH_MM - pdfImgWidth) / 2;
             const imgY = MARGIN_MM + 10;
 
             pdf.addImage(panel.imageUrl, 'JPEG', imgX, imgY, pdfImgWidth, pdfImgHeight);
-
             let currentTextY = imgY + pdfImgHeight + TEXT_START_Y_OFFSET;
 
             if (panel.caption) {
@@ -186,8 +180,8 @@ const App: React.FC = () => {
                 if (currentTextY > A4_HEIGHT_MM - MARGIN_MM - 10) {
                     pdf.addPage();
                     currentTextY = MARGIN_MM;
-                     pdf.text(`Panel ${panel.scene_number} (cont.)`, MARGIN_MM, currentTextY);
-                     currentTextY +=10;
+                    pdf.text(`Panel ${panel.scene_number} (cont.)`, MARGIN_MM, currentTextY);
+                    currentTextY += 10;
                 }
                 const dialogueLines = pdf.splitTextToSize(dialogue, MAX_IMG_WIDTH);
                 pdf.text(dialogueLines, MARGIN_MM, currentTextY);
@@ -196,22 +190,17 @@ const App: React.FC = () => {
             }
           } catch (e) {
             console.error("Error processing image for PDF for panel " + panel.scene_number, e);
-            const errorTextY = MARGIN_MM + 20;
-            pdf.setTextColor(255,0,0);
-            pdf.text("Error loading image for this panel.", MARGIN_MM, errorTextY, {maxWidth: MAX_IMG_WIDTH});
-            pdf.setTextColor(0);
+            pdf.setTextColor(255, 0, 0).text("Error loading image for this panel.", MARGIN_MM, MARGIN_MM + 20);
           }
         } else {
-           const errorTextY = MARGIN_MM + 20;
-          pdf.setFontSize(12);
-          pdf.setTextColor(255,0,0);
-          pdf.text(panel.imageUrl === 'error' ? "Image generation failed for this panel." : "Image not available for this panel.", MARGIN_MM, errorTextY, {maxWidth: MAX_IMG_WIDTH});
-          pdf.setTextColor(0);
+          pdf.setTextColor(255, 0, 0).text(
+            panel.imageUrl === 'error' ? "Image generation failed for this panel." : "Image not available for this panel.",
+            MARGIN_MM, MARGIN_MM + 20
+          );
         }
       }
       pdf.save('ai-comic.pdf');
     } catch (e) {
-      console.error("Failed to generate PDF:", e);
       setError(e instanceof Error ? e.message : "An unknown error occurred while generating the PDF.");
     } finally {
       setIsDownloadingPdf(false);
@@ -233,41 +222,30 @@ const App: React.FC = () => {
         <section className="api-key-section">
           <div className="form-input-container">
             <label htmlFor="apiKey" className="form-label">Your Gemini API Key (Optional)</label>
-            <input
-              type="password" id="apiKey" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-              className="form-input" placeholder="Enter here to use premium Gemini models"
-              aria-describedby="apiKeyHelp"
-            />
+            <input type="password" id="apiKey" value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="form-input" placeholder="Enter here to use premium Gemini models" aria-describedby="apiKeyHelp" />
           </div>
           <p id="apiKeyHelp" className="input-description">
             Required only for Gemini models. Pollinations models are free and do not need a key. Your key is not stored.
           </p>
         </section>
 
-        <StoryInputForm
-            onSubmit={handleComicGeneration} isLoading={isLoading}
-            isApiKeyProvided={!!apiKey.trim()} currentProgress={progress}
-        />
+        <StoryInputForm onSubmit={handleComicGeneration} isLoading={isLoading} isApiKeyProvided={!!apiKey.trim()} currentProgress={progress} />
 
         {error && (
           <div className="error-message-container">
             <h3 className="type-title-medium">Operation Status</h3>
+            {/* SAFE ERROR RENDERING: Ensures app doesn't crash on non-string errors */}
             {typeof error === 'string'
               ? error.split('\n').map((errMsg, index) => <p key={index}>{errMsg}</p>)
               : <p>{String(error)}</p>
             }
-            <button onClick={() => setError(null)} className="btn error-dismiss-btn" aria-label="Dismiss message">
-              Dismiss
-            </button>
+            <button onClick={() => setError(null)} className="btn error-dismiss-btn" aria-label="Dismiss message">Dismiss</button>
           </div>
         )}
 
         {comicPanels.length > 0 && !isLoading && (
           <div className="centered-action-button-container">
-            <button
-              onClick={handleDownloadPdf} disabled={isDownloadingPdf}
-              className="btn btn-success" aria-label="Download Comic as PDF"
-            >
+            <button onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="btn btn-success" aria-label="Download Comic as PDF">
               <span className="material-icons-outlined">download</span>
               {isDownloadingPdf ? 'Generating PDF...' : 'Download Comic as PDF'}
             </button>
@@ -279,7 +257,7 @@ const App: React.FC = () => {
 
       <footer className="app-footer">
         <p>Powered by Gemini and Pollinations AI.</p>
-         <p className="footer-fineprint">Comic Creator v3.2 - Final</p>
+        <p className="footer-fineprint">Comic Creator v3.2 - Final</p>
       </footer>
     </div>
   );
